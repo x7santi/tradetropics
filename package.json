@@ -1,0 +1,122 @@
+{
+  "name": "tradetropics",
+  "version": "1.0.0",
+  "description": "TradeTropics — AI-powered market confidence meter for traders",
+  "main": "out/main/index.js",
+  "author": "TradeTropics",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:win": "npm run build && electron-builder --win",
+    "build:all": "npm run build && electron-builder --mac --win",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run src/renderer/src/lib",
+    "build:icons": "electron-icon-builder --input=build/icon-source.png --output=build --flatten",
+    "release:mac": "npm run build && electron-builder --mac --publish always",
+    "release:win": "npm run build && electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
+    "electron-updater": "^6.8.3",
+    "lightweight-charts": "^5.2.0",
+    "lucide-react": "^0.511.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.15.0",
+    "recharts": "^2.15.3",
+    "zustand": "^5.0.4"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@types/node": "^22.15.18",
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "electron": "^35.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-icon-builder": "^2.0.1",
+    "electron-vite": "^3.1.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^4.1.5"
+  },
+  "build": {
+    "appId": "com.tradetropics.app",
+    "productName": "TradeTropics",
+    "copyright": "Copyright © 2025 TradeTropics",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "!**/.env",
+      "!**/.env.*",
+      "!**/node_modules/**"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "tradetropics",
+      "repo": "tradetropics-releases"
+    },
+    "mac": {
+      "category": "public.app-category.finance",
+      "darkModeSupport": true,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icons/icon.icns"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "background": "build/dmg-background.png",
+      "icon": "build/icons/icon.icns",
+      "iconSize": 80,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TradeTropics"
+    }
+  }
+}

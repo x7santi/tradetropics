@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" fill="#0f172a"/>
+
+  <!-- Teal glow circle -->
+  <circle cx="512" cy="512" r="300" fill="#14b8a6" opacity="0.08"/>
+
+  <!-- Wave path — represents the AI Entry Score waveform -->
+  <path
+    d="M 160 512
+       C 220 512 240 420 300 420
+       C 360 420 380 600 440 600
+       C 500 600 520 460 580 380
+       C 620 330 640 440 680 440
+       C 720 440 740 512 800 512
+       C 840 512 860 470 880 470"
+    fill="none"
+    stroke="#14b8a6"
+    stroke-width="36"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Second wave (fainter) -->
+  <path
+    d="M 160 512
+       C 220 512 240 460 300 460
+       C 360 460 380 560 440 560
+       C 500 560 520 490 580 430
+       C 620 390 640 470 680 470
+       C 720 470 740 512 800 512"
+    fill="none"
+    stroke="#14b8a6"
+    stroke-width="20"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.4"
+  />
+
+  <!-- Score dot — the "live" indicator -->
+  <circle cx="880" cy="470" r="22" fill="#14b8a6"/>
+  <circle cx="880" cy="470" r="38" fill="#14b8a6" opacity="0.25"/>
+</svg>

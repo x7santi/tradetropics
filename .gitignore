@@ -1,0 +1,20 @@
+node_modules/
+dist/
+out/
+.env
+*.local
+
+# Claude Code
+.claude/
+ui-ux-pro-max-skill/
+
+# macOS
+.DS_Store
+*.dmg
+
+# Windows
+*.exe
+*.msi
+
+# TypeScript
+*.tsbuildinfo
