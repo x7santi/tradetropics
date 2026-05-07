@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import logo from '@renderer/assets/logo.png'
 import { LayoutDashboard, BookOpen, Calendar, Settings, User, FileText, Lock } from 'lucide-react'
 import { useIsPro } from '@renderer/components/ProGate'
 import { playMetalClank } from '@renderer/lib/sounds'
@@ -341,11 +342,7 @@ export default function Sidebar(): JSX.Element {
         style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 100%)' }}
       >
         <div className="flex items-center gap-2.5">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="shrink-0">
-            <rect width="22" height="22" rx="6" fill="rgba(99,102,241,0.14)"/>
-            <path d="M4 11 C6 11 7 8 9 8 C11 8 12 14 14 14 C16 14 17 11 18 11"
-              stroke="#818cf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <img src={logo} alt="TradeTropics" className="w-7 h-7 rounded-lg shrink-0" />
           <span className="text-slate-100 font-semibold text-sm tracking-tight hidden lg:block">
             TradeTropics
           </span>

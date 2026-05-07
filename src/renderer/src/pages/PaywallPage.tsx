@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import logo from '@renderer/assets/logo.png'
 import { useAuthStore } from '@renderer/store/authStore'
 
 const FEATURES = [
@@ -121,11 +122,7 @@ export default function PaywallPage(): JSX.Element {
         </button>
       )}
       <div className="flex items-center justify-center gap-2.5 mb-3">
-        <svg width="28" height="28" viewBox="0 0 22 22" fill="none">
-          <rect width="22" height="22" rx="6" fill="rgba(59,130,246,0.12)"/>
-          <path d="M4 11 C6 11 7 8 9 8 C11 8 12 14 14 14 C16 14 17 11 18 11"
-            stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <img src={logo} alt="TradeTropics" className="w-8 h-8 rounded-xl" />
         <span className="text-slate-100 font-semibold text-base tracking-tight">TradeTropics</span>
       </div>
       <p className="text-slate-400 text-sm">
