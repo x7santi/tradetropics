@@ -16,11 +16,16 @@ interface AuthAPI {
   openGoogleOAuth: (url: string) => Promise<string | null>
 }
 
+interface ShellAPI {
+  openExternal: (url: string) => void
+}
+
 declare global {
   interface Window {
     electron:    ElectronAPI
     updater:     UpdaterAPI
     nativeFetch: NativeFetchAPI
     auth:        AuthAPI
+    shell:       ShellAPI
   }
 }

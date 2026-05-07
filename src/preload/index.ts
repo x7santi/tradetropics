@@ -21,12 +21,17 @@ const authAPI = {
   openGoogleOAuth: (url: string): Promise<string | null> => ipcRenderer.invoke('auth:google-oauth', url),
 }
 
+const shellAPI = {
+  openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
+}
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('updater', updaterAPI)
     contextBridge.exposeInMainWorld('nativeFetch', fetchUrlAPI)
     contextBridge.exposeInMainWorld('auth', authAPI)
+    contextBridge.exposeInMainWorld('shell', shellAPI)
   } catch (error) {
     console.error(error)
   }
@@ -39,4 +44,6 @@ if (process.contextIsolated) {
   window.nativeFetch = fetchUrlAPI
   // @ts-ignore
   window.auth = authAPI
+  // @ts-ignore
+  window.shell = shellAPI
 }

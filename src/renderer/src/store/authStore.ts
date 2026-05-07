@@ -26,6 +26,8 @@ interface AuthState {
   fetchAvatarUrl: (userId: string) => Promise<void>
   setAvatarUrl: (url: string | null) => void
   checkProfileSetup: (userId: string, user: User) => Promise<void>
+  /** Opens Stripe checkout in the system browser. Returns an error string or null on success. */
+  createCheckoutSession: (plan: 'monthly' | 'yearly' | 'lifetime') => Promise<string | null>
   /** Returns an error message on failure, or null on success */
   activatePro: (userId: string, period: 'monthly' | 'yearly') => Promise<string | null>
   activateLifetime: (userId: string) => Promise<string | null>
@@ -181,6 +183,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return null
     } catch (err: any) {
       return err?.message ?? 'Setup failed'
+    }
+  },
+
+  createCheckoutSession: async (plan) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { plan },
+      })
+      if (error) return error.message
+      if (!data?.url) return 'No checkout URL returned — please try again.'
+      window.shell?.openExternal(data.url)
+      return null
+    } catch (err: any) {
+      return err?.message ?? 'Failed to start checkout'
     }
   },
 

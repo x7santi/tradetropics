@@ -134,6 +134,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
   autoUpdater.on('error',             (err)  => send('updater:error',      err.message))
 
   ipcMain.on('updater:install', () => autoUpdater.quitAndInstall(false, true))
+  ipcMain.on('shell:open-external', (_event, url: string) => shell.openExternal(url))
 
   setTimeout(() => {
     if (!is.dev) autoUpdater.checkForUpdates().catch(() => {})
