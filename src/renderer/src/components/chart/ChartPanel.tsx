@@ -3,7 +3,7 @@ import type { IPriceLine } from 'lightweight-charts'
 import { useChartStore } from '@renderer/store/chartStore'
 import { useSettingsStore, BG_COLORS } from '@renderer/store/settingsStore'
 import { useAnnotationStore } from '@renderer/store/annotationStore'
-import { useChart }      from './useChart'
+import { useChart, makeTickMarkFormatter } from './useChart'
 import { useCandles, type CandleSourcePreference } from './useCandles'
 import SymbolSearch      from './SymbolSearch'
 import TimeframePills    from './TimeframePills'
@@ -150,6 +150,14 @@ export default function ChartPanel(): JSX.Element {
   const getCandleTheme = useSettingsStore(s => s.getCandleTheme)
   const candleThemeId  = useSettingsStore(s => s.candleThemeId)
   const chartBgMode    = useSettingsStore(s => s.chartBgMode)
+  const timezone       = useSettingsStore(s => s.timezone)
+
+  // Re-apply timezone to chart time scale whenever it changes in settings
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      timeScale: { tickMarkFormatter: makeTickMarkFormatter(timezone) },
+    })
+  }, [timezone])
 
   // Apply candle colours + bg/grid whenever theme or bg mode changes
   useEffect(() => {
@@ -230,9 +238,22 @@ export default function ChartPanel(): JSX.Element {
   drawingModeRef.current   = drawingMode
   selectedColorRef.current = selectedColor
 
-  const handleChartClick = useCallback((params: { point?: { x: number; y: number } }) => {
-    if (!drawingModeRef.current || !params.point || !candleSeriesRef.current) return
-    const price = candleSeriesRef.current.coordinateToPrice(params.point.y)
+  const handleChartClick = useCallback((params: { point?: { x: number; y: number }; sourceEvent?: { clientY: number } }) => {
+    if (!drawingModeRef.current || !candleSeriesRef.current) return
+    // Use point.y from chart params; if coordinateToPrice returns null (clicked RSI/volume pane),
+    // fall back to the crosshair price if available
+    const y = params.point?.y
+    if (y == null) return
+    let price = candleSeriesRef.current.coordinateToPrice(y)
+    // If y is outside the main price pane, try nearby y values within ±8px
+    if (price === null) {
+      for (let delta = 1; delta <= 8; delta++) {
+        price = candleSeriesRef.current.coordinateToPrice(y - delta)
+        if (price !== null) break
+        price = candleSeriesRef.current.coordinateToPrice(y + delta)
+        if (price !== null) break
+      }
+    }
     if (price === null) return
     addAnnotation(symbol, { price, color: selectedColorRef.current, label: '' })
   }, [symbol, addAnnotation])
@@ -330,7 +351,7 @@ export default function ChartPanel(): JSX.Element {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar — single row, no wrap */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-surface-1 border-b border-glass shrink-0">
+      <div className="flex items-center gap-3 px-4 py-2 bg-surface-base/50 backdrop-blur-sm border-b border-white/[0.06] shrink-0">
         <SymbolSearch />
         <div className="w-px h-4 bg-glass/60 shrink-0" />
         <TimeframePills disabledTfs={disabledTfs} />
@@ -361,7 +382,7 @@ export default function ChartPanel(): JSX.Element {
 
             {annotateOpen && (
               <div className="absolute right-0 top-full z-30 w-52 pt-2">
-                <div className="rounded-lg border border-glass bg-surface-1/95 p-2 shadow-xl backdrop-blur flex flex-col gap-2">
+                <div className="rounded-xl border border-white/[0.08] bg-surface-base/80 p-2 shadow-xl backdrop-blur-xl flex flex-col gap-2">
 
                   {/* Draw mode toggle */}
                   <button
@@ -457,7 +478,7 @@ export default function ChartPanel(): JSX.Element {
 
             {feedMenuOpen && (
               <div className="absolute right-0 top-full z-30 w-64 pt-2">
-                <div className="rounded-lg border border-glass bg-surface-1/95 p-1.5 shadow-xl backdrop-blur">
+                <div className="rounded-xl border border-white/[0.08] bg-surface-base/80 p-1.5 shadow-xl backdrop-blur-xl">
 
                   {/* ── Market session row ── */}
                   <div className="px-2 pt-1 pb-2">

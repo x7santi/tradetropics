@@ -34,7 +34,7 @@ export default function Topbar(): JSX.Element {
   const displayTimezone = selectedTimezone || autoTimezone
 
   const timeString = now.toLocaleTimeString('en-US', {
-    hour:   '2-digit',
+    hour:   'numeric',
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
@@ -68,10 +68,7 @@ export default function Topbar(): JSX.Element {
   }
 
   return (
-    <header
-      className="flex items-center h-12 border-b border-glass shrink-0 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.25)]"
-      style={{ background: 'linear-gradient(180deg, #0e1f35 0%, #0b1526 100%)' }}
-    >
+    <header className="flex items-center h-12 border-b border-white/[0.06] shrink-0 px-4 bg-surface-base/50 backdrop-blur-xl shadow-[0_1px_0_rgba(255,255,255,0.04)]">
 
       {/* Page title */}
       <p className="text-sm font-semibold text-slate-200 tracking-tight flex-1">{pageTitle}</p>

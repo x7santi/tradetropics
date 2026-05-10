@@ -192,13 +192,14 @@ export default function ConfidenceMeter(): JSX.Element {
     return () => clearInterval(id)
   }, [nextRefreshAt])
 
-  const rawScore     = entryScore?.score        ?? null
-  const direction    = entryScore?.direction    ?? null
-  const biasInterval = entryScore?.biasInterval ?? interval
-  const biasSentence = entryScore?.analysis ?? null
-  const rsi          = entryScore?.rsi          ?? null
-  const ema20        = entryScore?.ema20        ?? null
-  const currentPrice = entryScore?.currentPrice ?? null
+  const rawScore       = entryScore?.score          ?? null
+  const direction      = entryScore?.direction      ?? null
+  const biasInterval   = entryScore?.biasInterval   ?? interval
+  const biasSentence   = entryScore?.analysis       ?? null
+  const rsi            = entryScore?.rsi            ?? null
+  const ema20          = entryScore?.ema20          ?? null
+  const currentPrice   = entryScore?.currentPrice   ?? null
+  const premiumDiscount = entryScore?.premiumDiscount ?? 'unknown'
 
   const displayScore = useAnimatedScore(rawScore ?? 0)
 
@@ -392,7 +393,22 @@ export default function ConfidenceMeter(): JSX.Element {
           style={!isPro ? { filter: 'blur(4px)', opacity: 0.6 } : {}}
         >
           {/* Divider */}
-          <div className="border-t border-glass" />
+          <div className="border-t border-white/[0.06]" />
+
+          {/* Premium/discount zone badge */}
+          {premiumDiscount !== 'unknown' && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold border ${
+                premiumDiscount === 'premium'
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                  : premiumDiscount === 'discount'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+              }`}>
+                {premiumDiscount === 'premium' ? '▲ Premium Zone' : premiumDiscount === 'discount' ? '▼ Discount Zone' : '≈ Equilibrium'}
+              </span>
+            </div>
+          )}
 
           {/* Analysis paragraph */}
           {biasSentence && (
@@ -403,9 +419,9 @@ export default function ConfidenceMeter(): JSX.Element {
           )}
 
           {/* Generate Report / cooldown */}
-          <div className="border-t border-glass pt-2 mt-3">
+          <div className="border-t border-white/[0.06] pt-2 mt-3">
             {cooldownSec > 0 ? (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-2 border border-glass">
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.07]">
                 <span className="text-xs text-slate-400">Cooldown</span>
                 <div className="flex items-center gap-1.5">
                   <svg width="14" height="14" viewBox="0 0 14 14" className="-rotate-90">
@@ -422,7 +438,7 @@ export default function ConfidenceMeter(): JSX.Element {
               <button
                 onClick={handleTakeReport}
                 disabled={remaining === 0 || reportGeneration.active}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 border border-glass hover:border-blue-500/25 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_2px_6px_rgba(0,0,0,0.3)]"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.07] hover:border-blue-500/25 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_2px_6px_rgba(0,0,0,0.3)]"
               >
                 <span className="text-xs font-medium text-slate-200">
                   {reportGeneration.active ? 'Generating…' : 'Generate Report'}
@@ -444,7 +460,7 @@ export default function ConfidenceMeter(): JSX.Element {
         {/* Lock overlay for free / expired users */}
         {!isPro && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-surface-3 border border-glass-strong flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/[0.1] flex items-center justify-center">
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                 <rect x="2" y="6" width="10" height="7" rx="1.5" stroke="#94a3b8" strokeWidth="1.3"/>
                 <path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="#94a3b8" strokeWidth="1.3" strokeLinecap="round"/>

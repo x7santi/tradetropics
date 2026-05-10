@@ -7,6 +7,7 @@ import LoginPage from '@renderer/pages/LoginPage'
 import SignupPage from '@renderer/pages/SignupPage'
 import ForgotPasswordPage from '@renderer/pages/ForgotPasswordPage'
 import DashboardPage from '@renderer/pages/DashboardPage'
+import ChartsPage from '@renderer/pages/ChartsPage'
 import PaywallPage from '@renderer/pages/PaywallPage'
 import AccountPage from '@renderer/pages/AccountPage'
 import ReportsPage from '@renderer/pages/ReportsPage'
@@ -72,6 +73,7 @@ export default function App(): JSX.Element {
         <Route path="/auth/setup"      element={<ProtectedRoute><GoogleSetupPage /></ProtectedRoute>} />
         <Route path="/paywall"         element={<SetupGuard><PaywallPage /></SetupGuard>} />
         <Route path="/dashboard"       element={<SetupGuard><DashboardPage /></SetupGuard>} />
+        <Route path="/charts"          element={<SetupGuard><ChartsPage /></SetupGuard>} />
         <Route path="/journal"         element={<SetupGuard><JournalPage /></SetupGuard>} />
         <Route path="/calendar"        element={<SetupGuard><CalendarPage /></SetupGuard>} />
         <Route path="/settings"        element={<SetupGuard><SettingsPage /></SetupGuard>} />

@@ -59,7 +59,7 @@ function fmtDateGroup(iso: string): string {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }): JSX.Element {
   return (
-    <div className="bg-surface-1 border border-glass rounded-xl px-4 py-3 flex flex-col gap-0.5">
+    <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl px-4 py-3 flex flex-col gap-0.5">
       <p className="text-[10px] text-slate-400 uppercase tracking-widest">{label}</p>
       <p className="text-lg font-semibold text-slate-100 tabular-nums">{value}</p>
       {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
@@ -298,7 +298,7 @@ function ChecklistTab(): JSX.Element {
             <p className="text-slate-600 text-xs mt-1">Add your pre-trade conditions below</p>
           </div>
         ) : (
-          <div className="mx-4 my-3 bg-surface-1 border border-glass rounded-xl overflow-hidden">
+          <div className="mx-4 my-3 bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl overflow-hidden">
             {items.map(item => (
               <ChecklistRow
                 key={item.id}
@@ -321,7 +321,7 @@ function ChecklistTab(): JSX.Element {
             onChange={e => setNewText(e.target.value)}
             onKeyDown={handleKey}
             placeholder="Add a checklist item…"
-            className="flex-1 bg-surface-1 border border-glass rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40 transition-colors"
+            className="flex-1 bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40 transition-colors"
           />
           <button
             onClick={handleAdd}

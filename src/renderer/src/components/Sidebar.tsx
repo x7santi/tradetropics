@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, Calendar, Settings, User, FileText, Lock, ScrollText, BarChart2, type LucideIcon } from 'lucide-react'
+import {
+  LayoutDashboard, LineChart, BookOpen, Calendar, Settings, User,
+  FileText, Lock, ScrollText, BarChart2, type LucideIcon,
+} from 'lucide-react'
 import { useIsPro } from '@renderer/components/ProGate'
 import { playMetalClank } from '@renderer/lib/sounds'
 import { useReportStore } from '@renderer/store/reportStore'
 import { useDevLogStore } from '@renderer/store/devLogStore'
-import { useDashboardToolStore } from '@renderer/store/dashboardToolStore'
 import { useSettingsStore } from '@renderer/store/settingsStore'
 
 const bottomItems: { to: string; icon: LucideIcon; label: string }[] = [
@@ -268,74 +270,15 @@ function DevLogNavItem(): JSX.Element {
   )
 }
 
-function DashboardNavItem({ isDashboard, activeTools, toggleTool }: {
-  isDashboard: boolean
-  activeTools: string[]
-  toggleTool: (tool: string) => void
-}): JSX.Element {
-  return (
-    <div>
-      <NavLink
-        to="/dashboard"
-        className={({ isActive }) =>
-          `group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-all duration-150 ${
-            isActive
-              ? 'bg-indigo-500/10 text-indigo-200 shadow-[inset_2px_0_0_#6366f1] rounded-r-lg'
-              : 'text-slate-500 hover:text-slate-200 hover:bg-white/[0.05] rounded-lg'
-          }`
-        }
-      >
-        {({ isActive }) => (
-          <>
-            <LayoutDashboard size={16} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-            <span className="hidden lg:block">Dashboard</span>
-          </>
-        )}
-      </NavLink>
-      {isDashboard && (
-        <div className="mt-1 ml-3 flex flex-col gap-0.5">
-          {[
-            { key: 'score',    label: 'AI Score', short: 'A' },
-            { key: 'calendar', label: 'Calendar', short: 'C' },
-            { key: 'journal',  label: 'Journal',  short: 'J' },
-            { key: 'news',     label: 'News',     short: 'N' },
-          ].map(({ key, label, short }) => (
-            <button
-              key={key}
-              onClick={() => toggleTool(key)}
-              title={`Toggle ${label}`}
-              className={`w-full flex items-center justify-center lg:justify-start text-xs px-3 py-2 rounded-lg transition-colors ${
-                activeTools.includes(key)
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]'
-              }`}
-            >
-              <span className="hidden lg:inline">{label}</span>
-              <span className="lg:hidden text-[10px]">{short}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function Sidebar(): JSX.Element {
-  const location        = useLocation()
-  const isDashboard     = location.pathname === '/dashboard'
-  const activeTools     = useDashboardToolStore(s => s.activeTools)
-  const toggleTool      = useDashboardToolStore(s => s.toggleTool)
   const devToolsEnabled = useSettingsStore(s => s.devToolsEnabled)
   const isPro           = useIsPro()
 
   return (
-    <aside className="flex flex-col w-14 lg:w-48 bg-surface-1 border-r border-glass shrink-0 h-full">
+    <aside className="flex flex-col w-14 lg:w-48 bg-surface-1/50 backdrop-blur-xl border-r border-white/[0.06] shrink-0 h-full">
 
       {/* Brand */}
-      <div
-        className="flex items-center h-14 px-4 shrink-0 border-b border-glass"
-        style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 100%)' }}
-      >
+      <div className="flex items-center h-14 px-4 shrink-0 border-b border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="shrink-0">
             <rect width="22" height="22" rx="6" fill="rgba(99,102,241,0.14)"/>
@@ -351,22 +294,19 @@ export default function Sidebar(): JSX.Element {
       {/* Nav */}
       <nav className="flex flex-col gap-0.5 p-2 flex-1 pt-3">
         {isPro ? (
-          /* Pro order: Dashboard, Backtest, Journal, Calendar, Reports */
           <>
-            <DashboardNavItem isDashboard={isDashboard} activeTools={activeTools} toggleTool={toggleTool} />
+            <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+            <NavItem to="/charts"    icon={LineChart}       label="Charts" />
             <BacktestNavItem />
             <JournalNavItem />
             <NavItem to="/calendar" icon={Calendar} label="Calendar" />
             <ReportsNavItem />
           </>
         ) : (
-          /* Free order: available first (Dashboard, Calendar), then locked (Backtest, Journal, Reports) */
           <>
-            <DashboardNavItem isDashboard={isDashboard} activeTools={activeTools} toggleTool={toggleTool} />
-            <NavItem to="/calendar" icon={Calendar} label="Calendar" />
-            <BacktestNavItem />
-            <JournalNavItem />
-            <ReportsNavItem />
+            <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+            <NavItem to="/charts"    icon={LineChart}       label="Charts" />
+            <NavItem to="/calendar"  icon={Calendar}        label="Calendar" />
           </>
         )}
 
@@ -378,7 +318,7 @@ export default function Sidebar(): JSX.Element {
       </nav>
 
       {/* Version */}
-      <div className="hidden lg:block px-4 py-3 border-t border-glass">
+      <div className="hidden lg:block px-4 py-3 border-t border-white/[0.06]">
         <p className="text-[10px] font-mono text-slate-700 tracking-wide">v{__APP_VERSION__}</p>
       </div>
 

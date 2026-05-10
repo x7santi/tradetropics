@@ -29,6 +29,8 @@ export interface EntryScoreResult {
   direction: 'up' | 'down' | 'flat'
   biasInterval: string   // which timeframe the direction came from
   atr: number | null
+  // zone context
+  premiumDiscount: 'premium' | 'discount' | 'equilibrium' | 'unknown'
   // news split
   upcomingEvents: CalendarEvent[]
   recentEvents: CalendarEvent[]
@@ -268,7 +270,8 @@ function computeDirectionalSignal(
   let signedEvidence = 0
   signedEvidence += clamp(netMoveUnits * 18, -28, 28)
   signedEvidence += clamp(emaUnits * 13, -24, 24)
-  signedEvidence += trendDirection === 'up' ? 18 : trendDirection === 'down' ? -18 : 0
+  // Reduced weight vs old 18 — key-level context now dominates
+  signedEvidence += trendDirection === 'up' ? 10 : trendDirection === 'down' ? -10 : 0
 
   const bodyFlow = recent.reduce((sum, c) => {
     const range = c.high - c.low
@@ -284,11 +287,14 @@ function computeDirectionalSignal(
     else if (rsi < 22) signedEvidence += 5
   }
 
+  // Premium/discount zone: price deep in premium = bearish context; deep in discount = bullish.
+  // This is the core "uptrend ≠ always long" fix — at resistance/premium we favour shorts,
+  // at support/discount we favour longs, regardless of the macro trend direction.
   if (support !== null && resistance !== null && resistance > support) {
     const equilibrium = (support + resistance) / 2
-    const range = resistance - support
-    const distanceFromEq = (currentPrice - equilibrium) / range
-    signedEvidence += clamp(distanceFromEq * 18, -9, 9)
+    const halfRange   = (resistance - support) / 2
+    const zonePos     = halfRange > 0 ? (currentPrice - equilibrium) / halfRange : 0  // -1=deep discount, +1=deep premium
+    signedEvidence -= clamp(zonePos * 28, -28, 28)
   }
 
   // ── Reversal confluence detection ───────────────────────────────────────────
@@ -330,6 +336,21 @@ function computeDirectionalSignal(
     const lowerWick = Math.min(last.open, last.close) - last.low
     if (upperWick / lastRange > 0.55) revBear += 20
     if (lowerWick / lastRange > 0.55) revBull += 20
+  }
+
+  // RSI momentum divergence: price makes new extreme but RSI does not confirm
+  // Bearish divergence → price higher but momentum fading (strong reversal signal)
+  // Bullish divergence → price lower but momentum recovering
+  if (rsi !== null && candles.length >= 10) {
+    const lookback  = candles.slice(-10)
+    const priceHigh = Math.max(...lookback.map(c => c.high))
+    const priceLow  = Math.min(...lookback.map(c => c.low))
+    const prevHigh  = Math.max(...candles.slice(-20, -10).map(c => c.high))
+    const prevLow   = Math.min(...candles.slice(-20, -10).map(c => c.low))
+    // Price made higher high but RSI is not in high range → bearish divergence
+    if (priceHigh > prevHigh && rsi < 60) revBear += 14
+    // Price made lower low but RSI is not in low range → bullish divergence
+    if (priceLow < prevLow && rsi > 40) revBull += 14
   }
 
   const netRev = Math.min(revBull, 100) - Math.min(revBear, 100)
@@ -1034,6 +1055,16 @@ export function computeEntryScore(
     newsScore,
   )
 
+  // Zone context for UI display
+  let premiumDiscount: EntryScoreResult['premiumDiscount'] = 'unknown'
+  if (currentPrice !== null && support !== null && resistance !== null && resistance > support) {
+    const equilibrium = (support + resistance) / 2
+    const band        = (resistance - support) * 0.08
+    premiumDiscount   = currentPrice > equilibrium + band ? 'premium'
+      : currentPrice < equilibrium - band ? 'discount'
+      : 'equilibrium'
+  }
+
   const score = isHoliday
     ? 5
     : signal.confidence
@@ -1057,6 +1088,7 @@ export function computeEntryScore(
     reason, analysis, deepAnalysis,
     components: { trendScore: signal.directionalScore, volatilityScore: signal.structureScore, newsScore: signal.timingScore },
     rsi, ema20, currentPrice, support, resistance, direction: reportDirection, biasInterval, atr,
+    premiumDiscount,
     upcomingEvents, recentEvents,
   }
 }

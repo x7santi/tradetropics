@@ -5,9 +5,26 @@ import {
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import { useSettingsStore, BG_COLORS } from '@renderer/store/settingsStore'
 
+export function makeTickMarkFormatter(tz: string | null) {
+  return (time: number, tickMarkType: number): string => {
+    const d    = new Date(time * 1000)
+    const opts = tz ? { timeZone: tz } : {}
+    if (tickMarkType === 0) return new Intl.DateTimeFormat('en', { year: 'numeric', ...opts }).format(d)
+    if (tickMarkType === 1) return new Intl.DateTimeFormat('en', { month: 'short', ...opts }).format(d)
+    if (tickMarkType === 2) {
+      return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', ...opts }).format(d)
+    }
+    const parts = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit', hour12: false, ...opts }).formatToParts(d)
+    const h = parts.find(p => p.type === 'hour')?.value ?? '00'
+    const m = parts.find(p => p.type === 'minute')?.value ?? '00'
+    return `${h}:${m}`
+  }
+}
+
 export function useChart(containerRef: React.RefObject<HTMLDivElement | null>) {
   const getCandleTheme = useSettingsStore(s => s.getCandleTheme)
   const chartBgMode    = useSettingsStore(s => s.chartBgMode)
+  const timezone       = useSettingsStore(s => s.timezone)
   const chartRef        = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null)
@@ -34,18 +51,7 @@ export function useChart(containerRef: React.RefObject<HTMLDivElement | null>) {
         borderColor:    bgCols.border,
         timeVisible:    true,
         secondsVisible: false,
-        // Display bar timestamps in local timezone instead of UTC
-        tickMarkFormatter: (time: number, tickMarkType: number) => {
-          const d = new Date(time * 1000)
-          if (tickMarkType === 0) return d.getFullYear().toString()
-          if (tickMarkType === 1) return d.toLocaleString('default', { month: 'short' })
-          if (tickMarkType === 2) {
-            return `${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}`
-          }
-          const h = d.getHours().toString().padStart(2, '0')
-          const m = d.getMinutes().toString().padStart(2, '0')
-          return `${h}:${m}`
-        },
+        tickMarkFormatter: makeTickMarkFormatter(timezone),
       },
       rightPriceScale: { borderColor: bgCols.border },
     })

@@ -7,14 +7,15 @@ interface LayoutProps {
   rightRail?:     ReactNode
   railOpen?:      boolean
   onRailToggle?:  () => void
+  hideSidebar?:   boolean
 }
 
-export default function Layout({ children, rightRail, railOpen = true, onRailToggle }: LayoutProps): JSX.Element {
+export default function Layout({ children, rightRail, railOpen = true, onRailToggle, hideSidebar = false }: LayoutProps): JSX.Element {
   const hasRail = !!rightRail && !!onRailToggle
 
   return (
-    <div className="flex h-screen bg-surface-base overflow-hidden">
-      <Sidebar />
+    <div className="flex h-screen bg-surface-base overflow-hidden" style={{ background: 'transparent' }}>
+      {!hideSidebar && <Sidebar />}
 
       <div className="flex flex-col flex-1 min-w-0">
         <Topbar />
@@ -27,7 +28,7 @@ export default function Layout({ children, rightRail, railOpen = true, onRailTog
           {/* Right rail — full panel or narrow toggle strip */}
           {hasRail && (
             railOpen ? (
-              <aside className="w-72 shrink-0 border-l border-glass bg-surface-1 flex flex-col overflow-y-auto">
+              <aside className="w-72 shrink-0 border-l border-white/[0.06] bg-white/[0.02] backdrop-blur-xl flex flex-col overflow-y-auto">
                 {/* Collapse button pinned to top */}
                 <div className="flex justify-end px-2 pt-2 shrink-0">
                   <button
@@ -43,7 +44,7 @@ export default function Layout({ children, rightRail, railOpen = true, onRailTog
                 {rightRail}
               </aside>
             ) : (
-              <div className="w-8 shrink-0 border-l border-glass bg-surface-1 flex flex-col items-center pt-3">
+              <div className="w-8 shrink-0 border-l border-white/[0.06] bg-white/[0.02] backdrop-blur-xl flex flex-col items-center pt-3">
                 <button
                   onClick={onRailToggle}
                   title="Expand panel"
@@ -66,7 +67,7 @@ export default function Layout({ children, rightRail, railOpen = true, onRailTog
 
           {/* Rail without toggle — original behaviour */}
           {rightRail && !onRailToggle && (
-            <aside className="w-72 shrink-0 border-l border-glass bg-surface-1 flex flex-col overflow-y-auto">
+            <aside className="w-72 shrink-0 border-l border-white/[0.06] bg-white/[0.02] backdrop-blur-xl flex flex-col overflow-y-auto">
               {rightRail}
             </aside>
           )}

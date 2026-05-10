@@ -23,7 +23,6 @@ export default function LoginPage(): JSX.Element {
   const [googleLoading, setGoogleLoading] = useState(false)
   const signIn           = useAuthStore((s) => s.signIn)
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle)
-  const needsProfileSetup = useAuthStore((s) => s.needsProfileSetup)
   const navigate         = useNavigate()
 
   const handleGoogleSignIn = async () => {
@@ -32,7 +31,7 @@ export default function LoginPage(): JSX.Element {
     const err = await signInWithGoogle()
     setGoogleLoading(false)
     if (err) { setError(err); return }
-    if (needsProfileSetup) navigate('/google-setup')
+    if (useAuthStore.getState().needsProfileSetup) navigate('/google-setup')
     else navigate('/dashboard')
   }
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@renderer/store/authStore'
 import { useTradesStore, type Trade } from '@renderer/store/tradesStore'
+import { useIsPro } from '@renderer/components/ProGate'
 import LogTradeModal from './LogTradeModal'
 import CloseTradeModal from './CloseTradeModal'
 
@@ -39,6 +41,8 @@ function WinRateBadge({ trades }: { trades: Trade[] }): JSX.Element {
 export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: boolean; onToggle: () => void }): JSX.Element {
   const user                             = useAuthStore((s) => s.user)
   const { trades, loading, fetchTrades, deleteTrade } = useTradesStore()
+  const isPro                            = useIsPro()
+  const navigate                         = useNavigate()
   const [showModal, setShowModal]        = useState(false)
   const [tradeToClose, setTradeToClose]  = useState<Trade | null>(null)
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
@@ -49,15 +53,16 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
 
   return (
     <>
-      <div className="shrink-0 flex flex-col border-t border-glass bg-surface-1">
+      {/* Fixed-height bottom strip — shrink-0 prevents it from growing into the chart */}
+      <div className="shrink-0 flex flex-col border-t border-white/[0.06] bg-surface-base/70 backdrop-blur-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-glass shrink-0">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] shrink-0">
           <div className="flex items-center gap-3">
             <button
-              onClick={onToggle}
+              onClick={() => isPro ? onToggle() : navigate('/paywall')}
               className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-300 transition-colors flex-shrink-0"
-              title={journalOpen ? 'Collapse' : 'Expand'}
+              title={journalOpen ? 'Collapse' : (isPro ? 'Expand' : 'Pro required')}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path
@@ -73,21 +78,20 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
             <WinRateBadge trades={trades} />
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => isPro ? setShowModal(true) : navigate('/paywall')}
             className="text-xs px-3 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
           >
-            + Log Trade
+            {isPro ? '+ Log Trade' : '🔒 Log Trade'}
           </button>
         </div>
 
-        {/* Body — only shown when journalOpen is true */}
+        {/* Body — fixed height, no flex-grow */}
         {journalOpen && (
-          <div className="h-52 flex-1 overflow-y-auto min-h-0">
-
+          <div className="h-44 overflow-y-auto">
             {loading && trades.length === 0 ? (
               <div className="flex flex-col gap-2 p-3">
                 {[1, 2].map((i) => (
-                  <div key={i} className="h-7 rounded-md bg-surface-2/50 animate-pulse" />
+                  <div key={i} className="h-7 rounded-md bg-white/[0.04] animate-pulse" />
                 ))}
               </div>
             ) : trades.length === 0 ? (
@@ -96,7 +100,7 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-surface-1 z-10">
+                <thead className="sticky top-0 z-10 bg-surface-base/80 backdrop-blur-sm">
                   <tr className="text-slate-400 uppercase tracking-wider">
                     <th className="text-left px-4 py-1.5 font-normal">Symbol</th>
                     <th className="text-left px-2 py-1.5 font-normal">Dir</th>
@@ -111,7 +115,7 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
                   {trades.map((t) => (
                     <tr
                       key={t.id}
-                      className="border-t border-glass/50 hover:bg-white/[0.02] transition-colors"
+                      className="border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                     >
                       <td className="px-4 py-2 text-slate-200 font-medium">{t.symbol}</td>
                       <td className="px-2 py-2">
@@ -135,7 +139,7 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
                       {t.exit_price === null ? (
                         <button
                           onClick={() => setTradeToClose(t)}
-                          className="text-xs px-2 py-1 rounded-md bg-slate-500/10 text-slate-400 border border-slate-500/20 hover:bg-slate-500/20 hover:text-slate-300 transition-colors"
+                          className="text-xs px-2 py-1 rounded-md bg-white/[0.04] text-slate-400 border border-white/[0.07] hover:bg-white/[0.08] hover:text-slate-300 transition-colors"
                         >
                           Close
                         </button>
@@ -151,7 +155,7 @@ export default function TradeJournal({ journalOpen, onToggle }: { journalOpen: b
                           <button
                             type="button"
                             onClick={() => setPendingDelete(null)}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-surface-2 text-slate-400 border border-glass hover:text-slate-200 transition-colors"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-400 border border-white/[0.07] hover:text-slate-200 transition-colors"
                           >
                             No
                           </button>

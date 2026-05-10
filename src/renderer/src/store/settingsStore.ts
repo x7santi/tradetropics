@@ -78,15 +78,17 @@ interface Persisted {
   devToolsEnabled: boolean
 }
 
+const DEFAULTS: Persisted = {
+  soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark',
+  timezone: null, tradingEconomicsApiKey: '', devToolsEnabled: false,
+}
+
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return {
-      soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '', devToolsEnabled: false,
-      ...JSON.parse(raw),
-    }
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) }
   } catch { /* ignore */ }
-  return { soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '', devToolsEnabled: false }
+  return { ...DEFAULTS }
 }
 
 function save(s: Persisted): void {

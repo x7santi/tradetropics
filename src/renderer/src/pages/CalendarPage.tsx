@@ -127,7 +127,7 @@ function DayGridCell({
   onClick: () => void
 }): JSX.Element {
   const pnlColor = pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-red-400' : 'text-slate-600'
-  const pnlBg    = pnl > 0 ? 'bg-emerald-500/8' : pnl < 0 ? 'bg-red-500/8' : ''
+  const pnlBg    = pnl > 0 ? 'bg-emerald-500/[0.18]' : pnl < 0 ? 'bg-red-500/[0.14]' : ''
 
   if (!isCurrentMonth) {
     return (
@@ -185,10 +185,10 @@ function WeekTotalCell({ weekIndex, totalPnl, totalTrades }: {
   totalTrades: number
 }): JSX.Element {
   const pnlColor = totalPnl > 0 ? 'text-emerald-400' : totalPnl < 0 ? 'text-red-400' : 'text-slate-600'
-  const pnlBg    = totalPnl > 0 ? 'bg-emerald-500/8' : totalPnl < 0 ? 'bg-red-500/8' : 'bg-surface-2/30'
+  const pnlBg    = totalPnl > 0 ? 'bg-emerald-500/[0.18]' : totalPnl < 0 ? 'bg-red-500/[0.14]' : 'bg-white/[0.02]'
 
   return (
-    <div className={`h-full p-2 flex flex-col justify-between rounded-lg mx-0.5 my-0.5 ${pnlBg} border border-white/[0.04]`}>
+    <div className={`h-full p-2 flex flex-col justify-between rounded-lg mx-0.5 my-0.5 ${pnlBg} border ${totalPnl > 0 ? 'border-emerald-500/20' : totalPnl < 0 ? 'border-red-500/15' : 'border-white/[0.04]'}`}>
       <span className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest leading-none">W{weekIndex + 1}</span>
       <div className="flex flex-col gap-0.5">
         <span className={`text-[11px] font-semibold leading-none tabular-nums ${pnlColor}`}>{fmtPnl(totalPnl)}</span>
@@ -204,7 +204,7 @@ function WeekTotalCell({ weekIndex, totalPnl, totalTrades }: {
 
 function SessionRow({ label, time, timezone }: { label: string; time: Date; timezone: string }): JSX.Element {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-glass/50 last:border-0">
+    <div className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-0">
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-emerald-400/60 shrink-0" />
         <span className="text-sm text-slate-300 font-medium">{label}</span>
@@ -218,7 +218,7 @@ function SessionRow({ label, time, timezone }: { label: string; time: Date; time
 function EventItem({ event }: { event: CalendarEvent }): JSX.Element {
   const isHigh = event.impact === 'High'
   return (
-    <div className="flex items-start gap-2.5 py-2 border-b border-glass/40 last:border-0">
+    <div className="flex items-start gap-2.5 py-2 border-b border-white/[0.05] last:border-0">
       <div className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${isHigh ? 'bg-rose-400' : 'bg-yellow-400/60'}`} />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-300 leading-snug">{event.title}</p>
@@ -240,7 +240,7 @@ function TradeRow({ trade }: { trade: Trade }): JSX.Element {
   const pnlColor = trade.pnl == null ? 'text-slate-400'
     : trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
   return (
-    <div className="flex items-center gap-2.5 py-2 border-b border-glass/40 last:border-0">
+    <div className="flex items-center gap-2.5 py-2 border-b border-white/[0.05] last:border-0">
       <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border ${
         isLong
           ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
@@ -314,7 +314,7 @@ function DayDetail({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-glass/40 shrink-0 bg-white/[0.02]">
+      <div className="px-5 pt-5 pb-4 border-b border-white/[0.05] shrink-0 bg-white/[0.02]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[9px] text-slate-500 uppercase tracking-[0.14em] mb-0.5">{dayName}</p>
@@ -424,7 +424,7 @@ function DayDetail({
         {devToolsEnabled && (
           <section>
             <p className="text-[10px] text-slate-600 uppercase tracking-widest mb-1.5">Dev</p>
-            <div className="bg-surface-1 border border-glass/30 rounded-xl px-4 py-3">
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
               <p className="text-[10px] text-slate-600 mb-0.5">Day ID</p>
               <p className="font-mono text-sm text-slate-400 select-all">{dayId}</p>
             </div>
@@ -508,7 +508,7 @@ export default function CalendarPage(): JSX.Element {
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
         {/* Header */}
-        <div className="px-5 pt-3.5 pb-3 border-b border-glass/40 shrink-0 flex items-center justify-between bg-white/[0.01]">
+        <div className="px-5 pt-3.5 pb-3 border-b border-white/[0.05] shrink-0 flex items-center justify-between bg-white/[0.01]">
           <div className="flex items-center gap-2">
             <button
               onClick={prevMonth}
@@ -547,7 +547,7 @@ export default function CalendarPage(): JSX.Element {
 
               {/* Column headers */}
               <div
-                className="shrink-0 border-b border-glass/30"
+                className="shrink-0 border-b border-white/[0.04]"
                 style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr)) 80px' }}
               >
                 {DOW_LONG.map(d => (
@@ -567,10 +567,16 @@ export default function CalendarPage(): JSX.Element {
                   const weekTotalPnl   = currentDays.reduce((sum, d) => sum + dayPnl(d.dateStr), 0)
                   const weekTotalTrades = currentDays.reduce((sum, d) => sum + (tradesByDate[d.dateStr]?.length ?? 0), 0)
 
+                  const weekRowBg = weekTotalPnl > 0
+                    ? 'bg-emerald-500/[0.04]'
+                    : weekTotalPnl < 0
+                    ? 'bg-red-500/[0.03]'
+                    : ''
+
                   return (
                     <div
                       key={wi}
-                      className="flex-1 border-b border-glass/20 last:border-0"
+                      className={`flex-1 border-b border-white/[0.05] last:border-0 ${weekRowBg}`}
                       style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr)) 80px', minHeight: 72 }}
                     >
                       {week.map(cell => (
@@ -600,7 +606,7 @@ export default function CalendarPage(): JSX.Element {
 
           {/* Day detail panel — glassmorphism */}
           {selected && (
-            <div className="w-80 xl:w-96 shrink-0 border-l border-glass/40 overflow-hidden flex flex-col bg-white/[0.015] backdrop-blur-sm">
+            <div className="w-80 xl:w-96 shrink-0 border-l border-white/[0.05] overflow-hidden flex flex-col bg-white/[0.015] backdrop-blur-sm">
               <DayDetail
                 dateStr={selected}
                 events={dayEvents}
