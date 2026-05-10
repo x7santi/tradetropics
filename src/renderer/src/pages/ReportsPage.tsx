@@ -1,8 +1,39 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '@renderer/components/Layout'
 import { useReportStore, REPORTS_PER_DAY } from '@renderer/store/reportStore'
 import type { ReportData } from '@renderer/store/reportStore'
+import { useTradesStore } from '@renderer/store/tradesStore'
+import { useAuthStore } from '@renderer/store/authStore'
 import { playPaperScrunch } from '@renderer/lib/sounds'
+import type { EntryScoreResult } from '@renderer/lib/confidence'
+
+function priceDec(p: number | null): number {
+  if (p === null) return 5
+  if (p >= 1000) return 2
+  if (p >= 10)   return 3
+  return 5
+}
+
+function deriveSetup(analysis: EntryScoreResult | null) {
+  if (!analysis || analysis.direction === 'flat' || analysis.score < 40) return null
+  if (!analysis.currentPrice || !analysis.atr) return null
+  const { direction, support, resistance, currentPrice, atr } = analysis
+  const dec = priceDec(currentPrice)
+  if (direction === 'up') {
+    const entry = support ?? currentPrice
+    const stop  = entry - atr * 0.75
+    const sd    = entry - stop
+    const tgt   = resistance && resistance > entry + sd * 2.5 ? resistance : entry + sd * 2.5
+    return { side: 'long' as const, entry, stop, target: tgt, rr: ((tgt - entry) / sd).toFixed(1), dec }
+  } else {
+    const entry = resistance ?? currentPrice
+    const stop  = entry + atr * 0.75
+    const sd    = stop - entry
+    const tgt   = support && support < entry - sd * 2.5 ? support : entry - sd * 2.5
+    return { side: 'short' as const, entry, stop, target: tgt, rr: ((entry - tgt) / sd).toFixed(1), dec }
+  }
+}
 
 
 function scoreColor(s: number): string {
@@ -53,14 +84,18 @@ function ScoreMini({ value }: { value: number }): JSX.Element {
   )
 }
 
-function ReportCard({ report, isUnread, onOpen, onDelete }: {
-  report:   ReportData
-  isUnread: boolean
-  onOpen:   () => void
-  onDelete: () => void
+function ReportCard({ report, isUnread, userId, addTrade, onOpen, onDelete }: {
+  report:    ReportData
+  isUnread:  boolean
+  userId:    string | undefined
+  addTrade:  ReturnType<typeof useTradesStore>['addTrade']
+  onOpen:    () => void
+  onDelete:  () => void
 }): JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [simState, setSimState] = useState<'idle' | 'saving' | 'done'>('idle')
   const { symbol, interval, generatedAt, analysis } = report
+  const setup = deriveSetup(analysis)
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -71,6 +106,21 @@ function ReportCard({ report, isUnread, onOpen, onDelete }: {
       setConfirmDelete(true)
       setTimeout(() => setConfirmDelete(false), 3000)
     }
+  }
+
+  const handleSimulate = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!userId || !setup || simState !== 'idle') return
+    setSimState('saving')
+    const result = await addTrade(userId, {
+      symbol,
+      direction: setup.side,
+      entry:     setup.entry,
+      size:      1,
+      notes:     `Report simulation · ${symbol} ${interval} · Score ${analysis.score}/100 · Stop ${setup.stop.toFixed(setup.dec)} · Target ${setup.target.toFixed(setup.dec)}`,
+    })
+    setSimState(result.ok ? 'done' : 'idle')
+    if (result.ok) setTimeout(() => setSimState('idle'), 3000)
   }
 
   return (
@@ -91,7 +141,7 @@ function ReportCard({ report, isUnread, onOpen, onDelete }: {
             </span>
             <span className="text-[10px] text-slate-400 uppercase tracking-wide">{interval}</span>
           </div>
-          <div className="text-right shrink-0 pr-7">
+          <div className={`text-right shrink-0 transition-all duration-150 ${confirmDelete ? 'pr-20' : 'pr-7'}`}>
             <p className="text-[10px] text-slate-400">{formatDate(generatedAt)}</p>
             <p className="text-[10px] text-slate-600">{formatTime(generatedAt)} · {relativeTime(generatedAt)}</p>
           </div>
@@ -99,7 +149,31 @@ function ReportCard({ report, isUnread, onOpen, onDelete }: {
 
         <div className="flex items-center justify-between gap-4">
           <ScoreMini value={analysis.score} />
-          <span className={`text-xs font-semibold ${labelColor(analysis.score)}`}>{analysis.label}</span>
+          {setup && userId ? (
+            <button
+              onClick={handleSimulate}
+              disabled={simState === 'saving'}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border transition-all duration-150 shrink-0 ${
+                simState === 'done'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  : 'bg-surface-3 border-glass text-slate-400 hover:text-blue-400 hover:border-blue-500/30 hover:bg-blue-500/5'
+              }`}
+            >
+              {simState === 'done' ? (
+                <>
+                  <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6l3 3 5-5"/></svg>
+                  Simulated
+                </>
+              ) : simState === 'saving' ? '…' : (
+                <>
+                  <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2v8M2 6h8"/></svg>
+                  Simulate
+                </>
+              )}
+            </button>
+          ) : (
+            <span className={`text-xs font-semibold ${labelColor(analysis.score)}`}>{analysis.label}</span>
+          )}
         </div>
 
         {analysis.deepAnalysis?.[0] && (
@@ -183,6 +257,8 @@ export default function ReportsPage(): JSX.Element {
   const readIds      = useReportStore(s => s.readIds)
   const remaining    = useReportStore(s => s.remainingReports())
   const usageCount   = useReportStore(s => s.usageCount)
+  const userId       = useAuthStore(s => s.user?.id)
+  const addTrade     = useTradesStore(s => s.addTrade)
 
   const grouped = groupByDate(reports)
 
@@ -249,6 +325,8 @@ export default function ReportsPage(): JSX.Element {
                         key={report.id}
                         report={report}
                         isUnread={!readIds.has(report.id)}
+                        userId={userId}
+                        addTrade={addTrade}
                         onOpen={() => { markAsRead(report.id); openById(report.id) }}
                         onDelete={() => deleteReport(report.id)}
                       />

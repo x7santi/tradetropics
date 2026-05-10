@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 
 const fetchUrlAPI = {
   fetch: (url: string): Promise<string> => ipcRenderer.invoke('fetch-url', url),
@@ -21,13 +20,13 @@ const authAPI = {
   openGoogleOAuth: (url: string): Promise<string | null> => ipcRenderer.invoke('auth:google-oauth', url),
 }
 
+// invoke (not send) so the main-process allow-list validation is enforced before the call returns
 const shellAPI = {
-  openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open-external', url),
 }
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('updater', updaterAPI)
     contextBridge.exposeInMainWorld('nativeFetch', fetchUrlAPI)
     contextBridge.exposeInMainWorld('auth', authAPI)
@@ -37,8 +36,6 @@ if (process.contextIsolated) {
   }
 } else {
   // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore
   window.updater = updaterAPI
   // @ts-ignore
   window.nativeFetch = fetchUrlAPI

@@ -8,6 +8,70 @@ import { useIsPro } from '@renderer/components/ProGate'
 import { playToggleOn, playTypewriterKey } from '@renderer/lib/sounds'
 import { getRefreshMs } from '@renderer/lib/intervals'
 import type { EntryScoreResult } from '@renderer/lib/confidence'
+import type { Candle } from '@renderer/lib/finnhub'
+import { supabase } from '@renderer/lib/supabase'
+
+async function fetchAIDeepAnalysis(
+  score: EntryScoreResult,
+  candles: Candle[],
+  symbol: string,
+  interval: string,
+): Promise<string[] | null> {
+  try {
+    const recentCandles = candles.slice(-20).map(c => ({
+      o: c.open.toFixed(5),
+      h: c.high.toFixed(5),
+      l: c.low.toFixed(5),
+      c: c.close.toFixed(5),
+    }))
+
+    const mapEvent = (e: { title: string; country: string; impact: string; timestamp: number }) => ({
+      title:      e.title,
+      country:    e.country,
+      impact:     e.impact,
+      minutesAway: Math.round((e.timestamp - Date.now()) / 60_000),
+    })
+
+    const { data, error } = await supabase.functions.invoke('ai-analysis', {
+      body: {
+        symbol,
+        interval,
+        direction:       score.direction,
+        score:           score.score,
+        rsi:             score.rsi,
+        ema20:           score.ema20,
+        currentPrice:    score.currentPrice,
+        support:         score.support,
+        resistance:      score.resistance,
+        atr:             score.atr,
+        trendScore:      score.components.trendScore,
+        volatilityScore: score.components.volatilityScore,
+        upcomingEvents:  score.upcomingEvents.map(mapEvent),
+        recentEvents:    score.recentEvents.map(mapEvent),
+        candles:         recentCandles,
+      },
+    })
+
+    if (error) {
+      let body = ''
+      try { body = await (error as any).context?.text?.() ?? '' } catch { /* ignore */ }
+      console.warn('[AI] invoke error:', error.message, '| status:', (error as any).context?.status, '| body:', body)
+      return null
+    }
+    if (!Array.isArray(data?.sections)) {
+      console.warn('[AI] unexpected response shape:', data)
+      return null
+    }
+    if (data.sections.length < 3) {
+      console.warn('[AI] too few sections:', data.sections.length, data.sections)
+      return null
+    }
+    return data.sections as string[]
+  } catch (err) {
+    console.warn('[AI] exception:', err)
+    return null
+  }
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const W       = 232
@@ -75,19 +139,6 @@ function biasProps(direction: string | null, biasInterval?: string): { icon: str
   return { icon: '→', text: `No Bias${tf}`, cls: 'text-slate-400 bg-slate-700/30 border-slate-600/20' }
 }
 
-function estimateReportGenerationMs(report: EntryScoreResult, candleCount: number): number {
-  const textLength = [
-    report.reason,
-    report.analysis,
-    ...report.deepAnalysis,
-  ].join(' ').length
-  const eventCount = report.upcomingEvents.length + report.recentEvents.length
-  const extensiveness = Math.min(1, (textLength / 2200) * 0.65 + (candleCount / 180) * 0.25 + (eventCount / 12) * 0.1)
-  const baseMs = 2000 + extensiveness * 7000
-  const randomDeltaMs = (Math.random() - 0.5) * 1200
-
-  return Math.round(Math.max(2000, Math.min(9000, baseMs + randomDeltaMs)))
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -196,28 +247,28 @@ export default function ConfidenceMeter(): JSX.Element {
     if (!entryScore || !userId || reportGeneration.active) return
     playToggleOn()
 
-    const durationMs = estimateReportGenerationMs(entryScore, candles.length)
-    const startedAt = Date.now()
-
     if (progressTimerRef.current) clearInterval(progressTimerRef.current)
-    if (progressDoneRef.current) clearTimeout(progressDoneRef.current)
+    if (progressDoneRef.current)  clearTimeout(progressDoneRef.current)
 
-    setReportGeneration({ active: true, progress: 0 })
-
+    // Animate progress while waiting for the AI response
+    let fakeProgress = 4
+    setReportGeneration({ active: true, progress: fakeProgress })
     progressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startedAt
-      const linearProgress = Math.min(elapsed / durationMs, 1)
-      const easedProgress = 1 - Math.pow(1 - linearProgress, 2.5)
-      setReportGeneration({ active: true, progress: Math.min(96, easedProgress * 100) })
-    }, 80)
+      fakeProgress = Math.min(fakeProgress + (88 - fakeProgress) * 0.06, 88)
+      setReportGeneration({ active: true, progress: fakeProgress })
+    }, 200)
 
-    progressDoneRef.current = setTimeout(async () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current)
-        progressTimerRef.current = null
-      }
+    try {
+      const aiSections = await fetchAIDeepAnalysis(entryScore, candles, symbol, interval)
 
-      const result = await takeReport({ symbol, interval, analysis: entryScore, candles }, userId)
+      const enrichedScore: EntryScoreResult = aiSections
+        ? { ...entryScore, deepAnalysis: aiSections }
+        : entryScore
+
+      if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null }
+      setReportGeneration({ active: true, progress: 95 })
+
+      const result = await takeReport({ symbol, interval, analysis: enrichedScore, candles, aiGenerated: aiSections !== null }, userId)
 
       if (result.ok) {
         setReportGeneration({ active: true, progress: 100 })
@@ -226,7 +277,18 @@ export default function ConfidenceMeter(): JSX.Element {
       } else {
         setReportGeneration({ active: false, progress: 0 })
       }
-    }, durationMs)
+    } catch {
+      if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null }
+      // Fallback: save with local analysis if AI call throws
+      const result = await takeReport({ symbol, interval, analysis: entryScore, candles, aiGenerated: false }, userId)
+      if (result.ok) {
+        setReportGeneration({ active: true, progress: 100 })
+        playTypewriterKey()
+        setTimeout(() => setReportGeneration({ active: false, progress: 0 }), 550)
+      } else {
+        setReportGeneration({ active: false, progress: 0 })
+      }
+    }
   }
 
   if (rawScore === null) {
@@ -308,7 +370,7 @@ export default function ConfidenceMeter(): JSX.Element {
       {/* Symbol label */}
       <p className="text-xs font-semibold text-white tracking-wide -mt-1">{symbol}</p>
 
-      {/* Score + bias — always visible for all users */}
+      {/* Score — always visible for all users */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline gap-1 leading-none">
@@ -319,15 +381,8 @@ export default function ConfidenceMeter(): JSX.Element {
           </div>
           <div className="flex items-center gap-2 text-[10px] text-slate-500 leading-none font-mono">
             <span className="tabular-nums">RSI {rsi ?? '—'}</span>
-            <span className="text-slate-700">·</span>
-            <span className="tabular-nums">
-              EMA {ema20 !== null && currentPrice !== null ? (currentPrice > ema20 ? 'above' : 'below') : '—'}
-            </span>
           </div>
         </div>
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${bias.cls}`}>
-          {bias.icon} {bias.text}
-        </span>
       </div>
 
       {/* Gated section — blurred with lock for free/expired users */}

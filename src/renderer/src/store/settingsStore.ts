@@ -75,17 +75,18 @@ interface Persisted {
   timezone: string | null   // null = use system auto timezone
   /** Trading Economics API key (https://tradingeconomics.com/api/). Empty = guest/demo or VITE_TRADING_ECONOMICS_API_KEY */
   tradingEconomicsApiKey: string
+  devToolsEnabled: boolean
 }
 
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) return {
-      soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '',
+      soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '', devToolsEnabled: false,
       ...JSON.parse(raw),
     }
   } catch { /* ignore */ }
-  return { soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '' }
+  return { soundsEnabled: true, candleThemeId: 'teal-red', chartBgMode: 'dark', timezone: null, tradingEconomicsApiKey: '', devToolsEnabled: false }
 }
 
 function save(s: Persisted): void {
@@ -98,6 +99,7 @@ interface SettingsState extends Persisted {
   setChartBgMode: (mode: BgMode) => void
   setTimezone: (tz: string | null) => void
   setTradingEconomicsApiKey: (key: string) => void
+  setDevToolsEnabled: (v: boolean) => void
   getCandleTheme: () => CandleTheme
 }
 
@@ -129,6 +131,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setTradingEconomicsApiKey: (tradingEconomicsApiKey) => {
       save({ ...get(), tradingEconomicsApiKey })
       set({ tradingEconomicsApiKey })
+    },
+
+    setDevToolsEnabled: (devToolsEnabled) => {
+      save({ ...get(), devToolsEnabled })
+      set({ devToolsEnabled })
     },
 
     getCandleTheme: () =>

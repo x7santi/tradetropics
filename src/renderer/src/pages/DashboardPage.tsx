@@ -3,6 +3,7 @@ import Layout from '@renderer/components/Layout'
 import ChartPanel from '@renderer/components/chart/ChartPanel'
 import ConfidenceMeter from '@renderer/components/ConfidenceMeter'
 import EconomicCalendar from '@renderer/components/EconomicCalendar'
+import NewsPanel from '@renderer/components/NewsPanel'
 import ErrorBoundary from '@renderer/components/ErrorBoundary'
 import { useChartStore } from '@renderer/store/chartStore'
 import { useAuthStore } from '@renderer/store/authStore'
@@ -13,20 +14,32 @@ import TradeJournal from '@renderer/components/TradeJournal'
 import { useFavoritesStore } from '@renderer/store/favoritesStore'
 import { useDashboardToolStore, type ActiveDashboardTool } from '@renderer/store/dashboardToolStore'
 
+function Divider(): JSX.Element {
+  return <div className="mx-4 border-t border-slate-800" />
+}
+
 function RightRail({ activeTools }: { activeTools: ActiveDashboardTool[] }): JSX.Element {
+  const hasScore    = activeTools.includes('score')
+  const hasCalendar = activeTools.includes('calendar')
+  const hasNews     = activeTools.includes('news')
+
   return (
     <div className="flex flex-col gap-2 py-3">
-      {activeTools.includes('score') && (
+      {hasScore && (
         <ErrorBoundary label="ConfidenceMeter">
           <ConfidenceMeter />
         </ErrorBoundary>
       )}
-      {activeTools.includes('score') && activeTools.includes('calendar') && (
-        <div className="mx-4 border-t border-slate-800" />
-      )}
-      {activeTools.includes('calendar') && (
+      {hasScore && hasCalendar && <Divider />}
+      {hasCalendar && (
         <ErrorBoundary label="EconomicCalendar">
           <EconomicCalendar />
+        </ErrorBoundary>
+      )}
+      {(hasScore || hasCalendar) && hasNews && <Divider />}
+      {hasNews && (
+        <ErrorBoundary label="NewsPanel">
+          <NewsPanel />
         </ErrorBoundary>
       )}
     </div>
@@ -43,8 +56,8 @@ export default function DashboardPage(): JSX.Element {
   const fetchFavorites = useFavoritesStore(s => s.fetch)
   const activeTools = useDashboardToolStore(s => s.activeTools)
   const toggleTool = useDashboardToolStore(s => s.toggleTool)
-  const railTools = activeTools.filter(tool => tool === 'score' || tool === 'calendar')
-  const journalOpen = activeTools.includes('journal')
+  const railTools    = activeTools.filter(tool => tool === 'score' || tool === 'calendar' || tool === 'news')
+  const journalOpen  = activeTools.includes('journal')
 
   useEffect(() => {
     if (user?.id) { loadSession(user.id); fetchFavorites(user.id) }

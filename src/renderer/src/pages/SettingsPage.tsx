@@ -33,6 +33,8 @@ export default function SettingsPage(): JSX.Element {
   const setTimezone      = useSettingsStore(s => s.setTimezone)
   const tradingEconomicsApiKey = useSettingsStore(s => s.tradingEconomicsApiKey)
   const setTradingEconomicsApiKey = useSettingsStore(s => s.setTradingEconomicsApiKey)
+  const devToolsEnabled    = useSettingsStore(s => s.devToolsEnabled)
+  const setDevToolsEnabled = useSettingsStore(s => s.setDevToolsEnabled)
   const location         = useLocation()
 
   const [showDarkWarning,  setShowDarkWarning]  = useState(false)
@@ -284,6 +286,23 @@ export default function SettingsPage(): JSX.Element {
                   className="w-full px-3 py-2 rounded-lg bg-surface-2 border border-glass text-sm text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-blue-500/40 font-mono"
                 />
               </label>
+            </div>
+
+            {/* Developer tools */}
+            <div className="bg-surface-1 border border-glass rounded-lg p-6">
+              <h2 className="text-slate-100 text-sm font-semibold uppercase tracking-wide mb-4">Developer</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-300 text-sm font-medium">Developer Tools</p>
+                  <p className="text-slate-500 text-xs mt-0.5">Enables the Log panel in the sidebar</p>
+                </div>
+                <button
+                  onClick={() => setDevToolsEnabled(!devToolsEnabled)}
+                  className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors ${devToolsEnabled ? 'bg-blue-500 hover:bg-blue-400' : 'bg-surface-3 hover:bg-surface-2'}`}
+                >
+                  <span className={`inline-block w-5 h-5 transform rounded-full bg-white shadow-md transition-transform ${devToolsEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
             </div>
 
           </div>

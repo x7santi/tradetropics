@@ -24,13 +24,25 @@ export interface NewTrade {
   notes?: string
 }
 
+export interface FakeTradeRow {
+  symbol: string
+  direction: 'long' | 'short'
+  entry: number
+  exit_price: number
+  size: number
+  pnl: number
+  notes: string
+  opened_at: string
+}
+
 interface TradesState {
   trades: Trade[]
   loading: boolean
-  fetchTrades:  (userId: string) => Promise<void>
-  addTrade:     (userId: string, trade: NewTrade) => Promise<{ ok: boolean; error?: string }>
-  closeTrade:   (tradeId: string, exitPrice: number) => Promise<{ ok: boolean; error?: string }>
-  deleteTrade:  (tradeId: string) => Promise<{ ok: boolean; error?: string }>
+  fetchTrades:       (userId: string) => Promise<void>
+  addTrade:          (userId: string, trade: NewTrade) => Promise<{ ok: boolean; id?: string; error?: string }>
+  insertFakeTrades:  (userId: string, rows: FakeTradeRow[]) => Promise<{ ok: boolean; count: number; error?: string }>
+  closeTrade:        (tradeId: string, exitPrice: number) => Promise<{ ok: boolean; error?: string }>
+  deleteTrade:       (tradeId: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 function computePnl(trade: NewTrade): number | null {
@@ -50,8 +62,8 @@ export const useTradesStore = create<TradesState>((set, get) => ({
       .from('trades')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(100)
+      .order('opened_at', { ascending: false })
+      .limit(5000)
     if (!error && data) set({ trades: data as Trade[] })
     set({ loading: false })
   },
@@ -68,15 +80,28 @@ export const useTradesStore = create<TradesState>((set, get) => ({
         size:       trade.size,
         pnl:        computePnl(trade),
         notes:      trade.notes ?? null,
+        opened_at:  new Date().toISOString(),
       })
       .select()
       .single()
     if (!error && data) {
       set((s) => ({ trades: [data as Trade, ...s.trades] }))
-      return { ok: true }
+      return { ok: true, id: (data as Trade).id }
     }
     console.error('[tradesStore] addTrade:', error?.message)
     return { ok: false, error: error?.message ?? 'Failed to save trade' }
+  },
+
+  insertFakeTrades: async (userId, rows) => {
+    const payload = rows.map(r => ({ ...r, user_id: userId }))
+    const { data, error } = await supabase.from('trades').insert(payload).select()
+    if (error) {
+      console.error('[tradesStore] insertFakeTrades:', error.message)
+      return { ok: false, count: 0, error: error.message }
+    }
+    const inserted = (data ?? []) as Trade[]
+    set(s => ({ trades: [...inserted, ...s.trades] }))
+    return { ok: true, count: inserted.length }
   },
 
   closeTrade: async (tradeId, exitPrice) => {

@@ -11,12 +11,13 @@ import PaywallPage from '@renderer/pages/PaywallPage'
 import AccountPage from '@renderer/pages/AccountPage'
 import ReportsPage from '@renderer/pages/ReportsPage'
 import SettingsPage from '@renderer/pages/SettingsPage'
-import StubPage from '@renderer/pages/StubPage'
 import JournalPage from '@renderer/pages/JournalPage'
 import CalendarPage from '@renderer/pages/CalendarPage'
 import AnalysisReport from '@renderer/components/AnalysisReport'
 import UpdateBanner from '@renderer/components/UpdateBanner'
 import GoogleSetupPage from '@renderer/pages/GoogleSetupPage'
+import DevLogPage from '@renderer/pages/DevLogPage'
+import BacktestPage from '@renderer/pages/BacktestPage'
 
 const Spinner = () => (
   <div className="flex h-screen items-center justify-center bg-slate-900">
@@ -76,6 +77,8 @@ export default function App(): JSX.Element {
         <Route path="/settings"        element={<SetupGuard><SettingsPage /></SetupGuard>} />
         <Route path="/account"         element={<SetupGuard><AccountPage /></SetupGuard>} />
         <Route path="/reports"         element={<SetupGuard><ReportsPage /></SetupGuard>} />
+        <Route path="/devlog"          element={<SetupGuard><DevLogPage /></SetupGuard>} />
+        <Route path="/backtest"        element={<SetupGuard><BacktestPage /></SetupGuard>} />
         <Route path="*"                element={<Navigate to="/" replace />} />
       </Routes>
       {/* Global fixed overlay — accessible from any route */}

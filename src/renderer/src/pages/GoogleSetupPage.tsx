@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '@renderer/assets/logo.png'
 import { useAuthStore } from '@renderer/store/authStore'
 import { supabase } from '@renderer/lib/supabase'
 import { isPasswordStrong } from '@renderer/lib/passwordStrength'
@@ -104,7 +103,12 @@ export default function GoogleSetupPage(): JSX.Element {
         >
           {/* Header */}
           <div className="mb-6 text-center">
-            <img src={logo} alt="TradeTropics" className="w-12 h-12 rounded-xl mx-auto mb-4" />
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center mx-auto mb-4 shadow-[0_0_16px_rgba(99,102,241,0.12)]">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M3 11 C5 11 6 7.5 8.5 7.5 C11 7.5 12 14.5 14.5 14.5 C17 14.5 18 11 19 11"
+                  stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
             <h1 className="text-lg font-semibold text-slate-100 mb-1">Complete your account</h1>
             <p className="text-slate-500 text-xs leading-relaxed max-w-[240px] mx-auto">
               Choose a username and set a password so you can sign in either way.

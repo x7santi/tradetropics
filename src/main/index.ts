@@ -1,4 +1,26 @@
 import { app, shell, BrowserWindow, session, ipcMain, net, protocol } from 'electron'
+
+// Any HTTPS URL is safe to pass to shell.openExternal — the OS opens it in the
+// system browser. Blocking http:, javascript:, file:, and data: is the attack surface.
+function isAllowedExternalUrl(raw: unknown): boolean {
+  if (typeof raw !== 'string') return false
+  try {
+    return new URL(raw).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+// Allow-list for the fetch proxy — prevents SSRF via the renderer.
+const ALLOWED_FETCH_ORIGINS = new Set([
+  'https://api.twelvedata.com',
+  'https://api.tradingeconomics.com',
+  'https://finnhub.io',
+  'https://biquote.io',
+  'https://query1.finance.yahoo.com',
+  'https://nfs.faireconomy.media',
+  'https://www.forexfactory.com',
+])
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
@@ -51,7 +73,17 @@ function setContentSecurityPolicy(): void {
 }
 
 // Proxy fetch through main process (calendar + legacy feeds) to avoid renderer limits
-ipcMain.handle('fetch-url', (_event, url: string): Promise<string> => {
+ipcMain.handle('fetch-url', (_event, url: unknown): Promise<string> => {
+  if (typeof url !== 'string') return Promise.reject(new Error('Invalid URL'))
+  try {
+    const { origin } = new URL(url)
+    if (!ALLOWED_FETCH_ORIGINS.has(origin)) {
+      console.error('[IPC-SECURITY] Blocked fetch-url:', url)
+      return Promise.reject(new Error('URL not allowed'))
+    }
+  } catch {
+    return Promise.reject(new Error('Malformed URL'))
+  }
   return new Promise((resolve, reject) => {
     const referer = url.includes('tradingeconomics.com')
       ? 'https://tradingeconomics.com/'
@@ -134,7 +166,6 @@ function setupAutoUpdater(win: BrowserWindow): void {
   autoUpdater.on('error',             (err)  => send('updater:error',      err.message))
 
   ipcMain.on('updater:install', () => autoUpdater.quitAndInstall(false, true))
-  ipcMain.on('shell:open-external', (_event, url: string) => shell.openExternal(url))
 
   setTimeout(() => {
     if (!is.dev) autoUpdater.checkForUpdates().catch(() => {})
@@ -144,6 +175,15 @@ function setupAutoUpdater(win: BrowserWindow): void {
     if (!is.dev) autoUpdater.checkForUpdates().catch(() => {})
   }, 4 * 3_600_000)
 }
+
+// Validated shell:open-external — renderer cannot bypass the allow-list.
+ipcMain.handle('shell:open-external', async (_event, url: unknown) => {
+  if (!isAllowedExternalUrl(url)) {
+    console.error('[IPC-SECURITY] Blocked shell:open-external:', url)
+    return
+  }
+  await shell.openExternal(url as string)
+})
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -156,7 +196,9 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
     }
   })
 
@@ -166,7 +208,8 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (isAllowedExternalUrl(details.url)) shell.openExternal(details.url)
+    else console.error('[IPC-SECURITY] Blocked window-open:', details.url)
     return { action: 'deny' }
   })
 

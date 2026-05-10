@@ -1,5 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
-
 interface UpdaterAPI {
   onAvailable:     (cb: (info: unknown) => void) => void
   onDownloaded:    (cb: (info: unknown) => void) => void
@@ -17,12 +15,11 @@ interface AuthAPI {
 }
 
 interface ShellAPI {
-  openExternal: (url: string) => void
+  openExternal: (url: string) => Promise<void>
 }
 
 declare global {
   interface Window {
-    electron:    ElectronAPI
     updater:     UpdaterAPI
     nativeFetch: NativeFetchAPI
     auth:        AuthAPI

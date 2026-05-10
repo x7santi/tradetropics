@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import { fetchCandles, type Candle } from '@renderer/lib/finnhub'
+import { fetchCandles, type Candle, type CandleApiSource } from '@renderer/lib/finnhub'
 import { computeEntryScore, computeDirectionOnly, type CalendarEvent, type EntryScoreResult } from '@renderer/lib/confidence'
+import { useDevLogStore } from '@renderer/store/devLogStore'
+import { useSettingsStore } from '@renderer/store/settingsStore'
 
 const INTERVAL_MAP: Record<string, string> = {
   '1': '1min', '5': '5min', '15': '15min', '30': '30min',
@@ -56,8 +58,19 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   refresh: async (symbol: string, interval = '1D') => {
     try {
       const tdInterval = INTERVAL_MAP[interval] ?? '1day'
-      const candles    = await fetchCandles(symbol, 50, tdInterval)
-      const events     = get().calendarEvents
+      const devTools   = useSettingsStore.getState().devToolsEnabled
+      const addLog     = useDevLogStore.getState().addLog
+
+      const onStatus = devTools
+        ? (source: CandleApiSource, health: { status: string; message?: string }) => {
+            if (health.status === 'rate_limited') {
+              addLog(source as 'twelvedata' | 'biquote' | 'yahoo', `Rate limited on ${symbol} ${interval}${health.message ? ` — ${health.message}` : ''}`)
+            }
+          }
+        : undefined
+
+      const candles = await fetchCandles(symbol, 50, tdInterval, undefined, { onStatus })
+      const events = get().calendarEvents
 
       let entryScore = computeEntryScore(candles, events, symbol, Date.now(), interval, interval)
 
@@ -74,7 +87,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       }
 
       set({ candles, lastFetchedSymbol: symbol, lastFetchedInterval: interval, lastFetchedAt: Date.now(), fetchError: null, entryScore })
-      console.log(`[MarketFeed] ${symbol} ${interval} (bias: ${entryScore.biasInterval}) | ${candles.length} candles | ${entryScore.label} (${entryScore.score}) ${entryScore.direction}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       set({ fetchError: message, entryScore: null, candles: [] })

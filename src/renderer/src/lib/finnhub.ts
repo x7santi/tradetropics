@@ -298,7 +298,7 @@ function yahooRange(interval: string, count: number): string {
   if (interval === '1h' || interval === '4h') return '730d'
   if (interval === '1week') return '10y'
   if (interval === '1month') return 'max'
-  return count > 365 ? '5y' : '2y'
+  return count > 1000 ? '10y' : count > 365 ? '5y' : '2y'
 }
 
 async function fetchYahooCandles(symbol: string, count: number, interval: string, signal?: AbortSignal): Promise<Candle[]> {

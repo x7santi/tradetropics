@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '@renderer/assets/logo.png'
 import { useAuthStore } from '@renderer/store/authStore'
+import { useSubscriptionConfirmation } from '@renderer/hooks/useSubscriptionConfirmation'
 
 const FEATURES = [
   { label: 'Entry Score',        desc: 'Real-time 0–100 confidence rating on every chart' },
-  { label: 'Economic Calendar',  desc: 'High-impact events fed directly into your score' },
   { label: 'Trade Journal',      desc: 'Log trades, track P&L, and see your win rate' },
+  { label: 'Backtester',         desc: 'Replay 6 years of historical bars and test strategies' },
   { label: 'Multi-asset charts', desc: 'Stocks, forex, and crypto on one platform' },
 ]
 
-const LIFETIME_PRICE   = 119
-const YEARLY_PRO_PRICE = 79
+const LIFETIME_FULL_PRICE = 119
+const LIFETIME_PRICE      = 25
+const YEARLY_PRO_PRICE    = 99
 
 function CheckIcon({ gold = false }: { gold?: boolean }): JSX.Element {
   return (
@@ -27,11 +28,7 @@ function CheckIcon({ gold = false }: { gold?: boolean }): JSX.Element {
   )
 }
 
-function AwaitingPayment({ onCheck, onCancel, checking }: {
-  onCheck: () => void
-  onCancel: () => void
-  checking: boolean
-}): JSX.Element {
+function AwaitingPayment({ onCancel }: { onCancel: () => void }): JSX.Element {
   return (
     <div className="text-center px-6 py-8">
       <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/25 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(59,130,246,0.12)]">
@@ -45,18 +42,35 @@ function AwaitingPayment({ onCheck, onCancel, checking }: {
         Your plan activates automatically once payment is confirmed.
       </p>
       <button
-        onClick={onCheck}
-        disabled={checking}
-        className="w-full py-2.5 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white transition-colors mb-3"
-      >
-        {checking ? 'Checking…' : "I've paid — activate now"}
-      </button>
-      <button
         onClick={onCancel}
         className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
       >
         Go back
       </button>
+    </div>
+  )
+}
+
+function PaymentTimeout(): JSX.Element {
+  return (
+    <div className="text-center px-6 py-8">
+      <div className="w-14 h-14 rounded-full bg-slate-500/10 border border-slate-500/25 flex items-center justify-center mx-auto mb-5">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 6v4m0 4h.01M19 10a9 9 0 11-18 0 9 9 0 0118 0z"
+            stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <h2 className="text-slate-100 font-semibold text-base mb-2">Payment received</h2>
+      <p className="text-slate-400 text-sm leading-relaxed mb-1">
+        It may take a moment to reflect in the app.
+      </p>
+      <p className="text-slate-500 text-xs">
+        Contact{' '}
+        <a href="mailto:support@tradetropics.com" className="text-blue-400 hover:text-blue-300 underline">
+          support@tradetropics.com
+        </a>{' '}
+        if access hasn't updated within a few minutes.
+      </p>
     </div>
   )
 }
@@ -72,34 +86,23 @@ export default function PaywallPage(): JSX.Element {
 
   const [loadingPlan,     setLoadingPlan]     = useState<'monthly' | 'yearly' | 'lifetime' | null>(null)
   const [awaitingPayment, setAwaitingPayment] = useState(false)
-  const [checkingStatus,  setCheckingStatus]  = useState(false)
   const [billing,         setBilling]         = useState<'monthly' | 'yearly'>('monthly')
   const [error,           setError]           = useState<string | null>(null)
 
   const isPro    = subscriptionStatus === 'active'
   const isYearly = billing === 'yearly'
 
-  const lifetimePrice = isPro && billingPeriod === 'yearly'
-    ? LIFETIME_PRICE - YEARLY_PRO_PRICE
-    : LIFETIME_PRICE
+  const isAnnualPro = isPro && billingPeriod === 'yearly'
+  const lifetimePrice = isAnnualPro ? LIFETIME_PRICE : LIFETIME_FULL_PRICE
 
-  // Auto-detect payment completion while waiting
-  const checkStatus = useCallback(async () => {
-    if (!user) return
-    setCheckingStatus(true)
-    await fetchSubscription(user.id)
-    setCheckingStatus(false)
-    const status = useAuthStore.getState().subscriptionStatus
-    if (status === 'active' || status === 'lifetime') {
-      navigate('/dashboard', { replace: true })
-    }
-  }, [user, fetchSubscription, navigate])
+  const confirmationStatus = useSubscriptionConfirmation(user?.id, awaitingPayment)
 
+  // When the hook confirms payment, refresh the store and navigate.
   useEffect(() => {
-    if (!awaitingPayment) return
-    const interval = setInterval(checkStatus, 5000)
-    return () => clearInterval(interval)
-  }, [awaitingPayment, checkStatus])
+    if (confirmationStatus !== 'confirmed') return
+    if (user?.id) fetchSubscription(user.id)
+    navigate('/dashboard', { replace: true })
+  }, [confirmationStatus, user?.id, fetchSubscription, navigate])
 
   const handleCheckout = async (plan: 'monthly' | 'yearly' | 'lifetime') => {
     setError(null)
@@ -122,7 +125,11 @@ export default function PaywallPage(): JSX.Element {
         </button>
       )}
       <div className="flex items-center justify-center gap-2.5 mb-3">
-        <img src={logo} alt="TradeTropics" className="w-8 h-8 rounded-xl" />
+        <svg width="28" height="28" viewBox="0 0 22 22" fill="none">
+          <rect width="22" height="22" rx="6" fill="rgba(59,130,246,0.12)"/>
+          <path d="M4 11 C6 11 7 8 9 8 C11 8 12 14 14 14 C16 14 17 11 18 11"
+            stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
         <span className="text-slate-100 font-semibold text-base tracking-tight">TradeTropics</span>
       </div>
       <p className="text-slate-400 text-sm">
@@ -142,8 +149,10 @@ export default function PaywallPage(): JSX.Element {
             className="bg-surface-1 border border-amber-400/20 rounded-2xl overflow-hidden shadow-glass"
             style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.06) 0%, transparent 50%)' }}
           >
-            {awaitingPayment ? (
-              <AwaitingPayment onCheck={checkStatus} onCancel={() => setAwaitingPayment(false)} checking={checkingStatus} />
+            {awaitingPayment && confirmationStatus === 'timeout' ? (
+              <PaymentTimeout />
+            ) : awaitingPayment ? (
+              <AwaitingPayment onCancel={() => setAwaitingPayment(false)} />
             ) : (
               <>
                 <div className="px-6 pt-6 pb-5 border-b border-amber-400/15">
@@ -152,12 +161,14 @@ export default function PaywallPage(): JSX.Element {
                     <span className="text-4xl font-bold text-slate-100 tabular-nums">${lifetimePrice}</span>
                     <span className="text-slate-400 text-sm">once</span>
                     {credited && (
-                      <span className="ml-1 text-xs text-slate-400 line-through tabular-nums">${LIFETIME_PRICE}</span>
+                      <span className="ml-1 text-xs text-slate-400 line-through tabular-nums">
+                        ${LIFETIME_FULL_PRICE}
+                      </span>
                     )}
                   </div>
                   {credited ? (
                     <p className="text-xs text-amber-400/80 mt-1.5">
-                      Your ${YEARLY_PRO_PRICE} annual payment credited — just ${lifetimePrice} to go forever.
+                      Your annual payment credited — just ${lifetimePrice} to go forever.
                     </p>
                   ) : (
                     <p className="text-slate-400 text-xs mt-1">One payment. Never billed again.</p>
@@ -202,7 +213,7 @@ export default function PaywallPage(): JSX.Element {
   }
 
   // ── Free / expired user: show Pro plans ──────────────────────────────────────
-  const price       = isYearly ? 79 : 8
+  const price       = isYearly ? 99 : 14
   const priceSuffix = isYearly ? '/year' : '/month'
 
   return (
@@ -211,8 +222,10 @@ export default function PaywallPage(): JSX.Element {
         {BrandHeader}
 
         <div className="bg-surface-1 border border-glass rounded-2xl overflow-hidden shadow-glass">
-          {awaitingPayment ? (
-            <AwaitingPayment onCheck={checkStatus} onCancel={() => setAwaitingPayment(false)} checking={checkingStatus} />
+          {awaitingPayment && confirmationStatus === 'timeout' ? (
+            <PaymentTimeout />
+          ) : awaitingPayment ? (
+            <AwaitingPayment onCancel={() => setAwaitingPayment(false)} />
           ) : (
             <>
               {/* Pricing header */}
@@ -239,7 +252,7 @@ export default function PaywallPage(): JSX.Element {
                     >
                       Yearly
                       <span className={`text-xs font-semibold transition-colors ${isYearly ? 'text-emerald-400' : 'text-slate-400'}`}>
-                        −18%
+                        −41%
                       </span>
                     </button>
                   </div>
@@ -248,12 +261,12 @@ export default function PaywallPage(): JSX.Element {
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-4xl font-bold text-slate-100 tabular-nums">${price}</span>
                   <span className="text-slate-400 text-sm">{priceSuffix}</span>
-                  {isYearly && <span className="text-xs text-slate-400 ml-1">($6.58/mo)</span>}
+                  {isYearly && <span className="text-xs text-slate-400 ml-1">($8.25/mo)</span>}
                 </div>
                 {isYearly ? (
                   <div className="mt-1.5">
                     <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                      Save 18% vs monthly
+                      Save 41% vs monthly
                     </span>
                   </div>
                 ) : (
@@ -288,7 +301,7 @@ export default function PaywallPage(): JSX.Element {
                 >
                   {loadingPlan && loadingPlan !== 'lifetime'
                     ? 'Opening Stripe…'
-                    : isYearly ? 'Get Pro — $79/yr' : 'Get Pro — $8/mo'
+                    : isYearly ? 'Get Pro — $99/yr' : 'Get Pro — $14/mo'
                   }
                 </button>
 

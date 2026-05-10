@@ -291,6 +291,55 @@ function computeDirectionalSignal(
     signedEvidence += clamp(distanceFromEq * 18, -9, 9)
   }
 
+  // ── Reversal confluence detection ───────────────────────────────────────────
+  // Multiple confluences pointing the same reversal direction override
+  // trend-continuation evidence and shift the bias toward the reversal.
+  let revBull = 0
+  let revBear = 0
+
+  // RSI extreme → momentum exhaustion, mean-reversion likely
+  if (rsi !== null) {
+    if (rsi > 78) revBear += 30
+    else if (rsi > 72) revBear += 18
+    if (rsi < 22) revBull += 30
+    else if (rsi < 28) revBull += 18
+  }
+
+  // Price at or inside a key level (within 1 ATR) → at a decision point
+  if (resistance !== null && atrPct > 0) {
+    const distPct = (resistance - currentPrice) / (currentPrice * atrPct)
+    if (distPct >= 0 && distPct < 1.0) revBear += Math.round((1 - distPct) * 22)
+    else if (distPct < 0 && distPct > -0.5) revBear += 28  // already above resistance (false breakout zone)
+  }
+  if (support !== null && atrPct > 0) {
+    const distPct = (currentPrice - support) / (currentPrice * atrPct)
+    if (distPct >= 0 && distPct < 1.0) revBull += Math.round((1 - distPct) * 22)
+    else if (distPct < 0 && distPct > -0.5) revBull += 28  // below support (false breakdown zone)
+  }
+
+  // Liquidity sweep: wick through a key level, close back on the near side
+  for (const c of candles.slice(-8)) {
+    if (resistance !== null && c.high > resistance && c.close < resistance) revBear += 28
+    if (support !== null && c.low < support && c.close > support) revBull += 28
+  }
+
+  // Rejection wick on the most recent candle (buyers/sellers refusing the extreme)
+  const lastRange = last.high - last.low
+  if (lastRange > 0) {
+    const upperWick = last.high - Math.max(last.open, last.close)
+    const lowerWick = Math.min(last.open, last.close) - last.low
+    if (upperWick / lastRange > 0.55) revBear += 20
+    if (lowerWick / lastRange > 0.55) revBull += 20
+  }
+
+  const netRev = Math.min(revBull, 100) - Math.min(revBear, 100)
+  if (Math.abs(netRev) >= 25) {
+    // Reversal confluences are meaningful — blend them into signed evidence.
+    // More confluences = higher weight (caps at 60% reversal influence).
+    const revWeight = Math.min(Math.abs(netRev) / 120, 0.60)
+    signedEvidence = signedEvidence * (1 - revWeight) + Math.sign(netRev) * 45 * revWeight
+  }
+
   const direction = signedEvidence > 4 ? 'up' : signedEvidence < -4 ? 'down' : (last.close >= first.close ? 'up' : 'down')
   const directionalScore = clamp(Math.round(50 + Math.abs(signedEvidence)), 0, 100)
   const structureScore = clamp(Math.round(trendQuality * 0.85 + directionalScore * 0.15), 0, 100)
@@ -798,6 +847,44 @@ function buildDeepAnalysis(p: DeepAnalysisParams): string[] {
     ])
   }
   section('Execution', executionText)
+
+  // ── Trade Setup ──
+  const prec2 = (v: number) => info?.isCrypto ? 2 : v < 10 ? 3 : info?.pipFactor === 100 ? 3 : 5
+  const atrDisplay2 = p.atr !== null
+    ? info?.isCrypto ? `$${p.atr.toFixed(2)}` : `${(p.atr * pf).toFixed(1)} pips`
+    : null
+  let setupSection: string
+  if (p.score < 40) {
+    setupSection = `Score of ${p.score}/100 is too low to recommend a specific position. ${
+      p.direction === 'flat'
+        ? 'There is no directional edge yet — wait for one side of the range to be swept cleanly and then confirmed with a break of structure before risking capital.'
+        : `The ${p.direction === 'up' ? 'bullish' : 'bearish'} lean exists but lacks the confluence needed to be actionable. Watch for a clean liquidity sweep, a confirmed structure break, or a high-quality rejection from a key level before entering.`
+    }`
+  } else if (p.direction === 'up' && p.support !== null && p.atr !== null && p.currentPrice !== null) {
+    const entry    = p.support
+    const stop     = entry - p.atr * 0.75
+    const stopDist = entry - stop
+    const minTgt   = entry + stopDist * 2.5          // enforce minimum 2.5:1
+    const tgt      = p.resistance && p.resistance > minTgt ? p.resistance : minTgt
+    const rr       = ((tgt - entry) / stopDist).toFixed(1)
+    setupSection = `Bullish setup. Entry zone: ${entry.toFixed(prec2(entry))}–${(entry + p.atr * 0.3).toFixed(prec2(entry))} (demand area). Stop: ${stop.toFixed(prec2(stop))} (${atrDisplay2 ?? '—'} risk). Target: ${tgt.toFixed(prec2(tgt))}. Risk:reward ${rr}:1. ${p.score >= 65 ? 'Conviction is sufficient — enter on a candle close confirmation from the zone.' : 'Reduce size and wait for a clear rejection candle before entering.'}`
+  } else if (p.direction === 'down' && p.resistance !== null && p.atr !== null && p.currentPrice !== null) {
+    const entry    = p.resistance
+    const stop     = entry + p.atr * 0.75
+    const stopDist = stop - entry
+    const minTgt   = entry - stopDist * 2.5          // enforce minimum 2.5:1
+    const tgt      = p.support && p.support < minTgt ? p.support : minTgt
+    const rr       = ((entry - tgt) / stopDist).toFixed(1)
+    setupSection = `Bearish setup. Entry zone: ${(entry - p.atr * 0.3).toFixed(prec2(entry))}–${entry.toFixed(prec2(entry))} (supply area). Stop: ${stop.toFixed(prec2(stop))} (${atrDisplay2 ?? '—'} risk). Target: ${tgt.toFixed(prec2(tgt))}. Risk:reward ${rr}:1. ${p.score >= 65 ? 'Conviction is sufficient — enter on a candle close confirmation from the zone.' : 'Reduce size and wait for a clear rejection candle before entering.'}`
+  } else if (p.atr !== null && p.currentPrice !== null) {
+    const atrStr = atrDisplay2 ?? '—'
+    setupSection = p.direction === 'up'
+      ? `Bullish bias present but no clean support level identified for a precise entry. Use current price (${p.currentPrice.toFixed(prec2(p.currentPrice))}) as reference — stop 1× ATR (${atrStr}) below, target 2× ATR above. Wait for a structural confirmation such as a higher low or demand candle before committing.`
+      : `Bearish bias present but no clean resistance level for a precise entry. Use current price (${p.currentPrice.toFixed(prec2(p.currentPrice))}) as reference — stop 1× ATR (${atrStr}) above, target 2× ATR below. Require a confirmed lower high or supply candle before entering.`
+  } else {
+    setupSection = 'Insufficient data to compute specific entry or stop levels. Use ATR and the chart\'s swing highs/lows directly to size your risk.'
+  }
+  section('Trade Setup', setupSection)
 
   // ── Macro ──
   const macroIntros = pick([

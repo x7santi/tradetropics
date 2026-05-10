@@ -16,6 +16,36 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function csvEscape(value: string | number | null): string {
+  if (value === null) return ''
+  const s = String(value)
+  return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function exportTradesToCSV(trades: Trade[]): void {
+  const header = ['Date', 'Symbol', 'Direction', 'Entry', 'Exit', 'Size', 'P&L', 'Status', 'Notes']
+  const rows = trades.map(t => [
+    new Date(t.created_at).toISOString().slice(0, 10),
+    t.symbol,
+    t.direction,
+    fmtPrice(t.entry),
+    t.exit_price !== null ? fmtPrice(t.exit_price) : '',
+    t.size,
+    t.pnl !== null ? t.pnl.toFixed(2) : '',
+    t.pnl !== null ? 'Closed' : 'Open',
+    t.notes ?? '',
+  ].map(csvEscape).join(','))
+
+  const csv = [header.join(','), ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `trades-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function fmtDateGroup(iso: string): string {
   const d = new Date(iso)
   const today    = new Date()
@@ -210,16 +240,19 @@ function ChecklistRow({ item, onToggle, onRemove }: {
 }
 
 function ChecklistTab(): JSX.Element {
-  const { items, toggle, add, remove, resetChecks } = useChecklistStore()
+  const user                                 = useAuthStore(s => s.user)
+  const { items, loading, loadItems, toggle, add, remove, resetChecks } = useChecklistStore()
   const [newText, setNewText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (user?.id) loadItems(user.id) }, [user?.id])
 
   const checkedCount = items.filter(i => i.checked).length
 
   const handleAdd = () => {
     const t = newText.trim()
-    if (!t) return
-    add(t)
+    if (!t || !user?.id) return
+    add(user.id, t)
     setNewText('')
     inputRef.current?.focus()
   }
@@ -247,7 +280,7 @@ function ChecklistTab(): JSX.Element {
         </div>
         {checkedCount > 0 && (
           <button
-            onClick={resetChecks}
+            onClick={() => { if (user?.id) resetChecks(user.id) }}
             className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wide"
           >
             Reset all
@@ -257,7 +290,9 @@ function ChecklistTab(): JSX.Element {
 
       {/* Item list */}
       <div className="flex-1 overflow-y-auto min-h-0 px-1">
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-40 text-slate-600 text-xs">Loading…</div>
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-center">
             <p className="text-slate-500 text-sm">No checklist items yet</p>
             <p className="text-slate-600 text-xs mt-1">Add your pre-trade conditions below</p>
@@ -336,12 +371,25 @@ export default function JournalPage(): JSX.Element {
                   : `${trades.length} trade${trades.length !== 1 ? 's' : ''} logged`}
               </p>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-sm font-semibold text-white transition-colors"
-            >
-              + Log Trade
-            </button>
+            <div className="flex items-center gap-2">
+              {trades.length > 0 && (
+                <button
+                  onClick={() => exportTradesToCSV(trades)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-1 hover:bg-surface-2 border border-glass text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                  Export CSV
+                </button>
+              )}
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-sm font-semibold text-white transition-colors"
+              >
+                + Log Trade
+              </button>
+            </div>
           </div>
 
           {/* Stats row — always shown once trades exist */}

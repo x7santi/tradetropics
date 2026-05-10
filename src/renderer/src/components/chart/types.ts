@@ -22,6 +22,11 @@ export const TD_INTERVAL: Record<Timeframe, string> = {
 
 // How often to poll for live updates (ms)
 export const POLL_MS: Record<Timeframe, number> = {
-  '1': 30_000, '5': 60_000, '15': 90_000, '30': 120_000,
-  '60': 180_000, '240': 300_000, '1D': 600_000, '1W': 600_000, '1M': 600_000,
+  '1': 8_000, '5': 15_000, '15': 30_000, '30': 60_000,
+  '60': 90_000, '240': 180_000, '1D': 300_000, '1W': 600_000, '1M': 600_000,
+}
+
+// Timeframes that a given API source cannot reliably serve
+export const UNSUPPORTED_TFS: Record<string, Timeframe[]> = {
+  biquote: ['1W', '1M'],
 }

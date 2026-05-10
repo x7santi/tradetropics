@@ -1,68 +1,84 @@
 import { create } from 'zustand'
+import { supabase } from '@renderer/lib/supabase'
 
 export interface ChecklistItem {
   id: string
   text: string
   checked: boolean
+  position: number
 }
 
-const STORAGE_KEY = 'tt-checklist-items'
-
-const DEFAULT_ITEMS: ChecklistItem[] = [
-  { id: '1', text: 'HTF bias confirmed',              checked: false },
-  { id: '2', text: 'Key level identified',             checked: false },
-  { id: '3', text: 'Liquidity sweep seen',             checked: false },
-  { id: '4', text: 'Entry model confirmed (BOS/MSS)',  checked: false },
-  { id: '5', text: 'Session timing appropriate',       checked: false },
-  { id: '6', text: 'News risk checked',                checked: false },
+const DEFAULT_ITEMS: Omit<ChecklistItem, 'id'>[] = [
+  { text: 'HTF bias confirmed',             checked: false, position: 0 },
+  { text: 'Key level identified',            checked: false, position: 1 },
+  { text: 'Liquidity sweep seen',            checked: false, position: 2 },
+  { text: 'Entry model confirmed (BOS/MSS)', checked: false, position: 3 },
+  { text: 'Session timing appropriate',      checked: false, position: 4 },
+  { text: 'News risk checked',               checked: false, position: 5 },
 ]
-
-function loadItems(): ChecklistItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as ChecklistItem[]) : DEFAULT_ITEMS
-  } catch {
-    return DEFAULT_ITEMS
-  }
-}
-
-function persist(items: ChecklistItem[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)) } catch {}
-}
 
 interface ChecklistState {
   items: ChecklistItem[]
-  toggle:      (id: string)   => void
-  add:         (text: string) => void
-  remove:      (id: string)   => void
-  resetChecks: ()             => void
+  loading: boolean
+  loadItems:   (userId: string) => Promise<void>
+  toggle:      (id: string) => Promise<void>
+  add:         (userId: string, text: string) => Promise<void>
+  remove:      (id: string) => Promise<void>
+  resetChecks: (userId: string) => Promise<void>
 }
 
 export const useChecklistStore = create<ChecklistState>((set, get) => ({
-  items: loadItems(),
+  items: [],
+  loading: false,
 
-  toggle: (id) => {
-    const items = get().items.map(i => i.id === id ? { ...i, checked: !i.checked } : i)
-    persist(items)
-    set({ items })
+  loadItems: async (userId) => {
+    set({ loading: true })
+    const { data, error } = await supabase
+      .from('checklist_items')
+      .select('id, text, checked, position')
+      .eq('user_id', userId)
+      .order('position', { ascending: true })
+
+    if (error) { set({ loading: false }); return }
+
+    if (!data || data.length === 0) {
+      // Seed defaults for new user
+      const rows = DEFAULT_ITEMS.map(d => ({ ...d, user_id: userId }))
+      const { data: inserted } = await supabase
+        .from('checklist_items')
+        .insert(rows)
+        .select('id, text, checked, position')
+      set({ items: (inserted ?? []) as ChecklistItem[], loading: false })
+    } else {
+      set({ items: data as ChecklistItem[], loading: false })
+    }
   },
 
-  add: (text) => {
-    const item: ChecklistItem = { id: `${Date.now()}`, text: text.trim(), checked: false }
-    const items = [...get().items, item]
-    persist(items)
-    set({ items })
+  toggle: async (id) => {
+    const item = get().items.find(i => i.id === id)
+    if (!item) return
+    const checked = !item.checked
+    set({ items: get().items.map(i => i.id === id ? { ...i, checked } : i) })
+    await supabase.from('checklist_items').update({ checked }).eq('id', id)
   },
 
-  remove: (id) => {
-    const items = get().items.filter(i => i.id !== id)
-    persist(items)
-    set({ items })
+  add: async (userId, text) => {
+    const position = get().items.length
+    const { data } = await supabase
+      .from('checklist_items')
+      .insert({ user_id: userId, text: text.trim(), checked: false, position })
+      .select('id, text, checked, position')
+      .single()
+    if (data) set({ items: [...get().items, data as ChecklistItem] })
   },
 
-  resetChecks: () => {
-    const items = get().items.map(i => ({ ...i, checked: false }))
-    persist(items)
-    set({ items })
+  remove: async (id) => {
+    set({ items: get().items.filter(i => i.id !== id) })
+    await supabase.from('checklist_items').delete().eq('id', id)
+  },
+
+  resetChecks: async (userId) => {
+    set({ items: get().items.map(i => ({ ...i, checked: false })) })
+    await supabase.from('checklist_items').update({ checked: false }).eq('user_id', userId)
   },
 }))

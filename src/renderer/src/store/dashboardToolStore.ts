@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type DashboardTool = 'score' | 'calendar' | null
-export type ActiveDashboardTool = 'score' | 'calendar' | 'journal'
+export type ActiveDashboardTool = 'score' | 'calendar' | 'journal' | 'news'
 
 interface DashboardToolState {
   activeTools: ActiveDashboardTool[]

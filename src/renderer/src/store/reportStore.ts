@@ -3,7 +3,7 @@ import type { EntryScoreResult } from '@renderer/lib/confidence'
 import type { Candle } from '@renderer/lib/finnhub'
 import { supabase } from '@renderer/lib/supabase'
 
-export const REPORTS_PER_DAY = 10
+export const REPORTS_PER_DAY = 15
 export const REPORT_WINDOW_MS = 12 * 3_600_000
 export const COOLDOWN_MS     = 60_000  // 1 minute per symbol
 
@@ -58,6 +58,7 @@ export interface ReportData {
   generatedAt: number
   analysis: EntryScoreResult
   candles: Candle[]
+  aiGenerated?: boolean
 }
 
 interface ReportState {

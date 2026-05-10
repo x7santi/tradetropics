@@ -28,9 +28,6 @@ interface AuthState {
   checkProfileSetup: (userId: string, user: User) => Promise<void>
   /** Opens Stripe checkout in the system browser. Returns an error string or null on success. */
   createCheckoutSession: (plan: 'monthly' | 'yearly' | 'lifetime') => Promise<string | null>
-  /** Returns an error message on failure, or null on success */
-  activatePro: (userId: string, period: 'monthly' | 'yearly') => Promise<string | null>
-  activateLifetime: (userId: string) => Promise<string | null>
   signIn: (identifier: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string, username?: string) => Promise<string | null>
   signInWithGoogle: () => Promise<string | null>
@@ -71,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchSubscription: async (userId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('subscription_status')
+      .select('subscription_status,billing_period')
       .eq('id', userId)
       .maybeSingle()
 
@@ -84,6 +81,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!data) return
 
     const dbStatus = normalizeSubscriptionStatus(data.subscription_status)
+    const dbBilling = ((): BillingPeriod => {
+      const raw = (data as any)?.billing_period
+      if (raw === 'monthly' || raw === 'yearly') return raw
+      return null
+    })()
     if (!dbStatus) {
       console.warn('[Auth] unknown subscription_status:', data.subscription_status)
       set({ subscriptionStatus: 'trial' })
@@ -92,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // DB is source of truth on sign-in (tier guard previously let stale "expired" from a
     // past session stick if the new read was skipped or mis-ordered).
-    set({ subscriptionStatus: dbStatus })
+    set({ subscriptionStatus: dbStatus, billingPeriod: dbStatus === 'active' ? dbBilling : null })
   },
 
   fetchAvatarUrl: async (userId) => {
@@ -198,86 +200,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err: any) {
       return err?.message ?? 'Failed to start checkout'
     }
-  },
-
-  activatePro: async (userId, period) => {
-    if (get().user?.id !== userId) return 'Not signed in.'
-
-    const { data: rpcOk, error: rpcErr } = await supabase.rpc('set_my_subscription', {
-      p_status: 'active',
-    })
-
-    if (!rpcErr && rpcOk === true) {
-      set({ subscriptionStatus: 'active', billingPeriod: period })
-      return null
-    }
-
-    if (rpcErr) {
-      console.warn('[Auth] activatePro RPC:', rpcErr.message)
-    }
-
-    const { data: rows, error: upErr } = await supabase
-      .from('profiles')
-      .update({ subscription_status: 'active' })
-      .eq('id', userId)
-      .select('subscription_status')
-
-    if (upErr) {
-      console.warn('[Auth] activatePro update:', upErr.message)
-      return rpcErr?.message ?? upErr.message
-    }
-
-    const row = Array.isArray(rows) ? rows[0] : rows
-    const applied = row ? normalizeSubscriptionStatus(row.subscription_status) : null
-    if (applied !== 'active') {
-      return (
-        'Could not activate Pro. Apply the Supabase migration `set_my_subscription` ' +
-        '(see supabase/migrations/) or allow authenticated users to update their own `profiles` row.'
-      )
-    }
-
-    set({ subscriptionStatus: 'active', billingPeriod: period })
-    return null
-  },
-
-  activateLifetime: async (userId) => {
-    if (get().user?.id !== userId) return 'Not signed in.'
-
-    const { data: rpcOk, error: rpcErr } = await supabase.rpc('set_my_subscription', {
-      p_status: 'lifetime',
-    })
-
-    if (!rpcErr && rpcOk === true) {
-      set({ subscriptionStatus: 'lifetime' })
-      return null
-    }
-
-    if (rpcErr) {
-      console.warn('[Auth] activateLifetime RPC:', rpcErr.message)
-    }
-
-    const { data: rows, error: upErr } = await supabase
-      .from('profiles')
-      .update({ subscription_status: 'lifetime' })
-      .eq('id', userId)
-      .select('subscription_status')
-
-    if (upErr) {
-      console.warn('[Auth] activateLifetime update:', upErr.message)
-      return rpcErr?.message ?? upErr.message
-    }
-
-    const row = Array.isArray(rows) ? rows[0] : rows
-    const applied = row ? normalizeSubscriptionStatus(row.subscription_status) : null
-    if (applied !== 'lifetime') {
-      return (
-        'Could not activate Lifetime. Apply the Supabase migration `set_my_subscription` ' +
-        '(see supabase/migrations/) or fix RLS on `profiles`.'
-      )
-    }
-
-    set({ subscriptionStatus: 'lifetime' })
-    return null
   },
 
   signIn: async (identifier, password) => {
